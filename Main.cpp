@@ -170,7 +170,8 @@ int main(int argc, char* argv[])
 		// =====================
 		// PASS 1: Render scene to FBO
 		// =====================
-		graphics.BindFrameBuffer(sceneFBO);
+		//graphics.BindFrameBuffer(sceneFBO);
+		graphics.BindFrameBuffer(0);
 		graphics.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
 		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
 		graphics.Clear(true, true, false);
@@ -206,7 +207,7 @@ int main(int argc, char* argv[])
 		// =====================
 		// PASS 2: Post-process fullscreen quad
 		// =====================
-		//graphics.BindFrameBuffer(0); // back to default framebuffer (screen)
+		//graphics.BindFrameBuffer(0);
 		//graphics.Clear(true, false, false);
 		//graphics.SetDepthTest(false);
 
