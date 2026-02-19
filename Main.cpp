@@ -206,21 +206,21 @@ int main(int argc, char* argv[])
 		// =====================
 		// PASS 2: Post-process fullscreen quad
 		// =====================
-		graphics.BindFrameBuffer(0); // back to default framebuffer (screen)
-		graphics.Clear(true, false, false);
-		graphics.SetDepthTest(false);
+		//graphics.BindFrameBuffer(0); // back to default framebuffer (screen)
+		//graphics.Clear(true, false, false);
+		//graphics.SetDepthTest(false);
 
-		glUseProgram(postProcessShader);
+		//glUseProgram(postProcessShader);
 
-		// Bind the scene color texture to slot 0
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, (unsigned int)sceneFBO.GetTexture());
-		postProcessShader.SetUniform(postProcessShader.GetUniform("screenTexture"), 0);
+		//// Bind the scene color texture to slot 0
+		//glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, (unsigned int)sceneFBO.GetTexture());
+		//postProcessShader.SetUniform(postProcessShader.GetUniform("screenTexture"), 0);
 
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, quadVAO);
-		graphics.DrawNonIndexed(6);
+		//graphics.BindResource(ResourceType::VERTEX_BUFFER, quadVAO);
+		//graphics.DrawNonIndexed(6);
 
-		graphics.SetDepthTest(true);
+		//graphics.SetDepthTest(true);
 
 		window.SwapBuffers();
 	}
