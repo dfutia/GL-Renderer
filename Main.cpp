@@ -32,61 +32,25 @@ int main(int argc, char* argv[])
 
 	Model mannequinModel = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
 
-	SkinnedModel animatedModel = LoadSkinnedModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx").string());
-	Animator animator(animatedModel.mesh.skeleton);
-
-	if (!animatedModel.mesh.animations.empty())
-		animator.Play(&animatedModel.mesh.animations[0]);
-
-	const std::string vertexShaderSource = R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
-    layout (location = 2) in vec2 aTexCoord;
-    layout (location = 3) in ivec4 aBoneIDs;
-    layout (location = 4) in vec4 aBoneWeights;
-
-    uniform mat4 uMVP;
-    uniform mat4 uBoneMatrices[100];
-
-    out vec3 vNormal;
-    out vec2 vTexCoord;
-
-    void main()
-    {
-        mat4 skinMatrix =
-            aBoneWeights.x * uBoneMatrices[aBoneIDs.x] +
-            aBoneWeights.y * uBoneMatrices[aBoneIDs.y] +
-            aBoneWeights.z * uBoneMatrices[aBoneIDs.z] +
-            aBoneWeights.w * uBoneMatrices[aBoneIDs.w];
-
-        vec4 skinnedPos = skinMatrix * vec4(aPos, 1.0);
-        gl_Position = uMVP * skinnedPos;
-
-        vNormal = mat3(skinMatrix) * aNormal;
-        vTexCoord = aTexCoord;
-    }
-)";
-
 	// Basic vertex shader
-	//const std::string vertexShaderSource = R"(
- //       #version 330 core
- //       layout (location = 0) in vec3 aPos;
- //       layout (location = 1) in vec3 aNormal;
- //       layout (location = 2) in vec2 aTexCoord;
+	const std::string vertexShaderSource = R"(
+        #version 330 core
+        layout (location = 0) in vec3 aPos;
+        layout (location = 1) in vec3 aNormal;
+        layout (location = 2) in vec2 aTexCoord;
 
- //       uniform mat4 uMVP;
+        uniform mat4 uMVP;
 
- //       out vec3 vNormal;
- //       out vec2 vTexCoord;
+        out vec3 vNormal;
+        out vec2 vTexCoord;
 
- //       void main()
- //       {
- //           gl_Position = uMVP * vec4(aPos, 1.0);
- //           vNormal = aNormal;
- //           vTexCoord = aTexCoord;
- //       }
- //   )";
+        void main()
+        {
+            gl_Position = uMVP * vec4(aPos, 1.0);
+            vNormal = aNormal;
+            vTexCoord = aTexCoord;
+        }
+    )";
 
 	// Basic fragment shader
 	const std::string fragmentShaderSource = R"(
@@ -121,7 +85,6 @@ int main(int argc, char* argv[])
 	glm::vec3 modelRotation = glm::vec3(0.0f);
 	glm::vec3 modelScale = glm::vec3(1.0f);
 
-	Uint64 lastTime = SDL_GetPerformanceCounter();
 	SDL_Event event;
 	while (true)
 	{
@@ -132,12 +95,6 @@ int main(int argc, char* argv[])
 				return 0;
 			}
 		}
-
-		Uint64 now = SDL_GetPerformanceCounter();
-		float deltaTime = (float)(now - lastTime) / (float)SDL_GetPerformanceFrequency();
-		lastTime = now;
-
-		animator.Update(deltaTime);
 
 		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
 		graphics.Clear(true, true, false);
@@ -166,15 +123,8 @@ int main(int argc, char* argv[])
 		glUseProgram(shader);
 		shader.SetUniform(shader.GetUniform("uMVP"), mvp);
 
-		const auto& bones = animator.GetFinalBoneMatrices();
-		for (int i = 0; i < (int)bones.size(); i++)
-		{
-			std::string name = "uBoneMatrices[" + std::to_string(i) + "]";
-			shader.SetUniform(shader.GetUniform(name.c_str()), bones[i]);
-		}
-
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *animatedModel.mesh.vao);
-		graphics.DrawIndexed(animatedModel.mesh.IndexCount());
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
+		graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());
 
 		window.SwapBuffers();
 	}
