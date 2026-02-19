@@ -15,6 +15,7 @@
 #include <exception>
 #include <stdexcept>
 #include <set>
+#include <array>
 
 #include <glad/glad.h>
 

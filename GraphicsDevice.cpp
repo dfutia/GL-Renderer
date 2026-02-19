@@ -53,6 +53,25 @@ void GraphicsDevice::SetCullFace(bool enabled)
         glDisable(GL_CULL_FACE);
 }
 
+void GraphicsDevice::SetDepthWrite(bool enabled)
+{
+    glDepthMask(enabled ? GL_TRUE : GL_FALSE);
+}
+
+void GraphicsDevice::SetDepthFunc(DepthFunc func)
+{
+    GLenum glFunc;
+    switch (func)
+    {
+    case DepthFunc::Less:      glFunc = GL_LESS;   break;
+    case DepthFunc::LessEqual: glFunc = GL_LEQUAL; break;
+    case DepthFunc::Equal:     glFunc = GL_EQUAL;  break;
+    case DepthFunc::Always:    glFunc = GL_ALWAYS; break;
+    default:                   glFunc = GL_LESS;   break;
+    }
+    glDepthFunc(glFunc);
+}
+
 void GraphicsDevice::BindResource(ResourceType type, unsigned int id)
 {
     switch (type)
@@ -67,6 +86,12 @@ void GraphicsDevice::BindResource(ResourceType type, unsigned int id)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
         break;
     }
+}
+
+void GraphicsDevice::BindCubemap(unsigned int id, int slot)
+{
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, id);
 }
 
 void GraphicsDevice::BindFrameBuffer(int fbo)

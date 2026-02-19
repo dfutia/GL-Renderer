@@ -154,3 +154,31 @@ Texture LoadTexture(const std::string& filepath)
 	stbi_image_free(pixels);
 	return texture;
 }
+
+Texture LoadCubemap(const std::array<std::string, 6>& faces)
+{
+	Texture texture;
+	glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
+
+	for (int i = 0; i < 6; i++)
+	{
+		auto fileData = ReadBinaryFile(faces[i]);
+		int width, height, channels;
+		unsigned char* pixels = stbi_load_from_memory(
+			fileData.data(), (int)fileData.size(),
+			&width, &height, &channels, 0);
+
+		GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+			0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels);
+		stbi_image_free(pixels);
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return texture;
+}

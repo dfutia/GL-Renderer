@@ -8,6 +8,8 @@ enum class ResourceType
 	INDEX_BUFFER
 };
 
+enum class DepthFunc { Less, LessEqual, Equal, Always };
+
 class GraphicsDevice
 {
 public:
@@ -25,8 +27,11 @@ public:
 	void SetDepthTest(bool enabled);
 	void SetBlending(bool enabled);
 	void SetCullFace(bool enabled);
+	void SetDepthWrite(bool enabled);
+	void SetDepthFunc(DepthFunc func);
 
 	void BindResource(ResourceType type, unsigned int id);
+	void BindCubemap(unsigned int id, int slot = 0);
 	void BindFrameBuffer(int fbo = 0);
 
 	void DrawIndexed(unsigned int numTriangle);

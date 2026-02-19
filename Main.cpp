@@ -13,6 +13,15 @@
 #include "Shader.h"
 #include "ShaderProgram.h"
 
+float skyboxVertices[] = {
+	-1,  1, -1,  -1, -1, -1,   1, -1, -1,   1, -1, -1,   1,  1, -1,  -1,  1, -1,
+	-1, -1,  1,  -1, -1, -1,  -1,  1, -1,  -1,  1, -1,  -1,  1,  1,  -1, -1,  1,
+	 1, -1, -1,   1, -1,  1,   1,  1,  1,   1,  1,  1,   1,  1, -1,   1, -1, -1,
+	-1, -1,  1,  -1,  1,  1,   1,  1,  1,   1,  1,  1,   1, -1,  1,  -1, -1,  1,
+	-1,  1, -1,   1,  1, -1,   1,  1,  1,   1,  1,  1,  -1,  1,  1,  -1,  1, -1,
+	-1, -1, -1,  -1, -1,  1,   1, -1, -1,   1, -1, -1,  -1, -1,  1,   1, -1,  1
+};
+
 int main(int argc, char* argv[])
 {
 	Window::Config windowConfig;
@@ -75,6 +84,24 @@ int main(int argc, char* argv[])
 		Shader(Shader::Fragment, fragmentShaderSource)
 	);
 
+	VertexBuffer skyboxVBO(skyboxVertices, sizeof(skyboxVertices), VertexBuffer::StaticDraw);
+	VertexArray skyboxVAO;
+	skyboxVAO.BindAttribute(0, skyboxVBO, GL_FLOAT, 3, sizeof(float) * 3, 0);
+
+	Texture cubemap = LoadCubemap({
+		(GetMediaPath() / "Skybox/right.jpg").string(),
+		(GetMediaPath() / "Skybox/left.jpg").string(),
+		(GetMediaPath() / "Skybox/top.jpg").string(),
+		(GetMediaPath() / "Skybox/bottom.jpg").string(),
+		(GetMediaPath() / "Skybox/front.jpg").string(),
+		(GetMediaPath() / "Skybox/back.jpg").string()
+		});
+
+	ShaderProgram skyboxShader(
+		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/skybox.vert")),
+		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/skybox.frag"))
+	);
+
 	// Camera
 	glm::vec3 cameraPosition = glm::vec3(0.0f, 100.0f, 300.0f);
 	glm::vec3 cameraTarget = glm::vec3(0.0f, 100.0f, 0.0f);
@@ -123,8 +150,29 @@ int main(int argc, char* argv[])
 		glUseProgram(shader);
 		shader.SetUniform(shader.GetUniform("uMVP"), mvp);
 
+		// model
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
 		graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());
+
+		// skybox
+		graphics.SetDepthWrite(false);
+		graphics.SetDepthFunc(DepthFunc::LessEqual);
+
+		glUseProgram(skyboxShader);
+		graphics.BindResource(ResourceType::SHADER_PROGRAM, skyboxShader);
+
+		glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
+
+		skyboxShader.SetUniform(skyboxShader.GetUniform("uProjection"), projection);
+		skyboxShader.SetUniform(skyboxShader.GetUniform("uView"), skyboxView);
+		skyboxShader.SetUniform(skyboxShader.GetUniform("uSkybox"), 0);
+
+		graphics.BindCubemap(cubemap, 0);
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, skyboxVAO);
+		graphics.DrawNonIndexed(36);
+
+		graphics.SetDepthWrite(true);
+		graphics.SetDepthFunc(DepthFunc::Less);
 
 		window.SwapBuffers();
 	}
