@@ -12,6 +12,7 @@
 #include "VertexBuffer.h"
 #include "Shader.h"
 #include "ShaderProgram.h"
+#include "FrameBuffer.h"
 
 float skyboxVertices[] = {
 	-1,  1, -1,  -1, -1, -1,   1, -1, -1,   1, -1, -1,   1,  1, -1,  -1,  1, -1,
@@ -20,6 +21,17 @@ float skyboxVertices[] = {
 	-1, -1,  1,  -1,  1,  1,   1,  1,  1,   1,  1,  1,   1, -1,  1,  -1, -1,  1,
 	-1,  1, -1,   1,  1, -1,   1,  1,  1,   1,  1,  1,  -1,  1,  1,  -1,  1, -1,
 	-1, -1, -1,  -1, -1,  1,   1, -1, -1,   1, -1, -1,  -1, -1,  1,   1, -1,  1
+};
+
+float quadVertices[] = {
+	// positions   // texCoords
+	-1.0f,  1.0f,  0.0f, 1.0f,
+	-1.0f, -1.0f,  0.0f, 0.0f,
+	 1.0f, -1.0f,  1.0f, 0.0f,
+
+	-1.0f,  1.0f,  0.0f, 1.0f,
+	 1.0f, -1.0f,  1.0f, 0.0f,
+	 1.0f,  1.0f,  1.0f, 1.0f
 };
 
 int main(int argc, char* argv[])
@@ -36,8 +48,6 @@ int main(int argc, char* argv[])
 	}
 
 	GraphicsDevice graphics;
-	graphics.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
-	graphics.SetDepthTest(true);
 
 	Model mannequinModel = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
 
@@ -102,6 +112,19 @@ int main(int argc, char* argv[])
 		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/skybox.frag"))
 	);
 
+	VertexBuffer quadVBO(quadVertices, sizeof(quadVertices), VertexBuffer::StaticDraw);
+	VertexArray quadVAO;
+	unsigned int quadStride = sizeof(float) * 4;
+	quadVAO.BindAttribute(0, quadVBO, GL_FLOAT, 2, quadStride, 0);
+	quadVAO.BindAttribute(1, quadVBO, GL_FLOAT, 2, quadStride, sizeof(float) * 2);
+
+	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), 32, 24);
+
+	ShaderProgram postProcessShader(
+		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/postprocess.vert")),
+		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/postprocess.frag"))
+	);
+
 	// Camera
 	glm::vec3 cameraPosition = glm::vec3(0.0f, 100.0f, 300.0f);
 	glm::vec3 cameraTarget = glm::vec3(0.0f, 100.0f, 0.0f);
@@ -122,9 +145,6 @@ int main(int argc, char* argv[])
 				return 0;
 			}
 		}
-
-		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
-		graphics.Clear(true, true, false);
 
 		// view: where the camera is and what it's looking at
 		glm::mat4 view = glm::lookAt(cameraPosition, cameraTarget, cameraUp);
@@ -147,10 +167,19 @@ int main(int argc, char* argv[])
 
 		glm::mat4 mvp = projection * view * model;
 
+		// =====================
+		// PASS 1: Render scene to FBO
+		// =====================
+		graphics.BindFrameBuffer(sceneFBO);
+		graphics.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
+		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
+		graphics.Clear(true, true, false);
+		graphics.SetDepthTest(true);
+
+		// model
 		glUseProgram(shader);
 		shader.SetUniform(shader.GetUniform("uMVP"), mvp);
 
-		// model
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
 		graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());
 
@@ -173,6 +202,25 @@ int main(int argc, char* argv[])
 
 		graphics.SetDepthWrite(true);
 		graphics.SetDepthFunc(DepthFunc::Less);
+
+		// =====================
+		// PASS 2: Post-process fullscreen quad
+		// =====================
+		graphics.BindFrameBuffer(0); // back to default framebuffer (screen)
+		graphics.Clear(true, false, false);
+		graphics.SetDepthTest(false);
+
+		glUseProgram(postProcessShader);
+
+		// Bind the scene color texture to slot 0
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, (unsigned int)sceneFBO.GetTexture());
+		postProcessShader.SetUniform(postProcessShader.GetUniform("screenTexture"), 0);
+
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, quadVAO);
+		graphics.DrawNonIndexed(6);
+
+		graphics.SetDepthTest(true);
 
 		window.SwapBuffers();
 	}
