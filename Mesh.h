@@ -41,4 +41,5 @@ struct SkinnedMesh
     int IndexCount() const { return static_cast<int>(indices.size()); }
 };
 
+Mesh CreateMesh(const float* vertices, size_t vertexCount, unsigned int stride);
 #endif 

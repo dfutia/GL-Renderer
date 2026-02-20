@@ -1,7 +1,4 @@
-﻿//Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
-//Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
-
-#include <SDL.h>
+﻿#include <SDL.h>
 
 #include "PCH.h"
 #include "File.h"
@@ -14,6 +11,55 @@
 #include "Shader.h"
 #include "ShaderProgram.h"
 #include "FrameBuffer.h"
+#include "Material.h"
+#include "Transform.h"
+#include "Mesh.h"
+
+float cubeVerticesWithNormalsAndUVs[] = {
+	// positions          // normals           // texcoords
+	// Back face
+	-1.0f, -1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+	 1.0f,  1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+	 1.0f, -1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+	 1.0f,  1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+	-1.0f, -1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+	-1.0f,  1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+	// Front face
+	-1.0f, -1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+	 1.0f, -1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
+	 1.0f,  1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+	 1.0f,  1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+	-1.0f,  1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
+	-1.0f, -1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+	// Left face
+	-1.0f,  1.0f,  1.0f,  -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+	-1.0f,  1.0f, -1.0f,  -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+	-1.0f, -1.0f, -1.0f,  -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+	-1.0f, -1.0f, -1.0f,  -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+	-1.0f, -1.0f,  1.0f,  -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+	-1.0f,  1.0f,  1.0f,  -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+	// Right face
+	 1.0f,  1.0f,  1.0f,   1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+	 1.0f, -1.0f, -1.0f,   1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+	 1.0f,  1.0f, -1.0f,   1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+	 1.0f, -1.0f, -1.0f,   1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+	 1.0f,  1.0f,  1.0f,   1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+	 1.0f, -1.0f,  1.0f,   1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+	 // Bottom face
+	 -1.0f, -1.0f, -1.0f,   0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+	  1.0f, -1.0f, -1.0f,   0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+	  1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+	  1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+	 -1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+	 -1.0f, -1.0f, -1.0f,   0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+	 // Top face
+	 -1.0f,  1.0f, -1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+	  1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+	  1.0f,  1.0f, -1.0f,   0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+	  1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+	 -1.0f,  1.0f, -1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+	 -1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+};
 
 float skyboxVertices[] = {
 	-1,  1, -1,  -1, -1, -1,   1, -1, -1,   1, -1, -1,   1,  1, -1,  -1,  1, -1,
@@ -35,6 +81,18 @@ float quadVertices[] = {
 	 1.0f,  1.0f,  1.0f, 1.0f
 };
 
+struct Object
+{
+	Model* model;
+	Transform transform;
+
+	glm::mat4 GetWorldMatrix() const
+	{
+		glm::mat4 local = transform.GetMatrix();
+		return local;
+	}
+};
+
 int main(int argc, char* argv[])
 {
 	Window::Config windowConfig;
@@ -50,7 +108,33 @@ int main(int argc, char* argv[])
 
 	GraphicsDevice graphics;
 
+	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
+	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
+
 	Model mannequinModel = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
+	Object mannequinObject;
+	mannequinObject.model = &mannequinModel;
+
+	Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
+
+	Model cube;
+	cube.mesh = cubeMesh;
+	cube.material = Material::CreatePhongMaterial();
+
+	Object cubeObject;
+	cubeObject.model = &cube;
+	cubeObject.transform.scale = glm::vec3(10.0f);
+	cubeObject.model->material.SetTexture(Material::Diffuse, containerTexture);
+
+	// Floor
+	Model floor;
+	floor.mesh = cubeMesh;  // reuse the same mesh
+	floor.material = Material::CreatePhongMaterial();
+	floor.material.SetTexture(Material::Diffuse, woodTexture);
+
+	Transform floorTransform;
+	floorTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);  // below the cubes
+	floorTransform.scale = glm::vec3(500.0f, 1.0f, 500.0f);   // wide and thin
 
 	VertexBuffer skyboxVBO(skyboxVertices, sizeof(skyboxVertices), VertexBuffer::StaticDraw);
 	VertexArray skyboxVAO;
@@ -92,10 +176,13 @@ int main(int argc, char* argv[])
 	glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 	float lightIntensity = 1.0f;
 
-	// Model
-	glm::vec3 modelPosition = glm::vec3(0.0f);
-	glm::vec3 modelRotation = glm::vec3(0.0f);
-	glm::vec3 modelScale = glm::vec3(1.0f);
+	std::vector<Transform> cubeTransforms(10);
+	for (int i = 0; i < 10; i++)
+	{
+		cubeTransforms[i].position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f); // spread along X
+		cubeTransforms[i].rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);     // vary rotations
+		cubeTransforms[i].scale = glm::vec3(5.0f);
+	}
 
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	Uint64 lastTime = SDL_GetPerformanceCounter();
@@ -141,16 +228,6 @@ int main(int argc, char* argv[])
 			10000.0f
 		);
 
-		// model: where the object is in the world (i.e translation, rotation, scale)
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, modelPosition);
-		model = glm::rotate(model, glm::radians(modelRotation.x), glm::vec3(1, 0, 0));
-		model = glm::rotate(model, glm::radians(modelRotation.y), glm::vec3(0, 1, 0));
-		model = glm::rotate(model, glm::radians(modelRotation.z), glm::vec3(0, 0, 1));
-		model = glm::scale(model, modelScale);
-
-		glm::mat4 mvp = projection * view * model;
-
 		// =====================
 		// PASS 1: Render scene to FBO
 		// =====================
@@ -161,24 +238,65 @@ int main(int argc, char* argv[])
 		graphics.Clear(true, true, false);
 		graphics.SetDepthTest(true);
 
+		cubeObject.model->material.Apply();
+		cubeObject.model->material.SetUniform("viewMatrix", view);
+		cubeObject.model->material.SetUniform("projectionMatrix", projection);
+		cubeObject.model->material.SetUniform("hasDiffuseTexture", 0);
+		cubeObject.model->material.SetUniform("light.position", lightPosition);
+		cubeObject.model->material.SetUniform("light.color", lightColor);
+		cubeObject.model->material.SetUniform("light.intensity", lightIntensity);
+		cubeObject.model->material.SetUniform("viewPos", camera.position);
+		cubeObject.model->material.SetUniform("hasDiffuseTexture", 1);  // enable texture
+
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cubeObject.model->mesh.vao);
+
+		for (int i = 0; i < 10; i++)
+		{
+			glm::mat4 model = cubeTransforms[i].GetMatrix();
+			glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+
+			cubeObject.model->material.SetUniform("modelMatrix", model);
+			cubeObject.model->material.SetUniform("normalMatrix", normalMatrix);
+
+			graphics.DrawNonIndexed(cubeObject.model->mesh.VertexCount());
+		}
+
+		floor.material.Apply();
+		floor.material.SetUniform("viewMatrix", view);
+		floor.material.SetUniform("projectionMatrix", projection);
+		floor.material.SetUniform("hasDiffuseTexture", 1);  // enable texture
+		floor.material.SetUniform("light.position", lightPosition);
+		floor.material.SetUniform("light.color", lightColor);
+		floor.material.SetUniform("light.intensity", lightIntensity);
+		floor.material.SetUniform("viewPos", camera.position);
+
+		glm::mat4 floorModel = floorTransform.GetMatrix();
+		glm::mat3 floorNormalMatrix = glm::transpose(glm::inverse(glm::mat3(floorModel)));
+
+		floor.material.SetUniform("modelMatrix", floorModel);
+		floor.material.SetUniform("normalMatrix", floorNormalMatrix);
+
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);
+		graphics.DrawNonIndexed(floor.mesh.VertexCount());
+
 		// model
-		mannequinModel.material.Apply();
+		//mannequinModel.material.Apply();
 
-		mannequinModel.material.SetUniform("modelMatrix", model);
-		mannequinModel.material.SetUniform("viewMatrix", view);
-		mannequinModel.material.SetUniform("projectionMatrix", projection);
+		//mannequinModel.material.SetUniform("modelMatrix", model);
+		//mannequinModel.material.SetUniform("viewMatrix", view);
+		//mannequinModel.material.SetUniform("projectionMatrix", projection);
 
-		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
-		mannequinModel.material.SetUniform("normalMatrix", normalMatrix);
+		//glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+		//mannequinModel.material.SetUniform("normalMatrix", normalMatrix);
 
-		mannequinModel.material.SetUniform("light.position", lightPosition);
-		mannequinModel.material.SetUniform("light.color", lightColor);
-		mannequinModel.material.SetUniform("light.intensity", lightIntensity);
+		//mannequinModel.material.SetUniform("light.position", lightPosition);
+		//mannequinModel.material.SetUniform("light.color", lightColor);
+		//mannequinModel.material.SetUniform("light.intensity", lightIntensity);
 
-		mannequinModel.material.SetUniform("viewPos", camera.position);
+		//mannequinModel.material.SetUniform("viewPos", camera.position);
 
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
-		graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());
+		//graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
+		//graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());
 
 		// skybox
 		graphics.SetDepthWrite(false);
@@ -189,9 +307,9 @@ int main(int argc, char* argv[])
 
 		glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
 
-		skyboxShader.SetUniform(skyboxShader.GetUniform("uProjection"), projection);
-		skyboxShader.SetUniform(skyboxShader.GetUniform("uView"), skyboxView);
-		skyboxShader.SetUniform(skyboxShader.GetUniform("uSkybox"), 0);
+		skyboxShader.SetUniform(skyboxShader.GetUniform("projectionMatrix"), projection);
+		skyboxShader.SetUniform(skyboxShader.GetUniform("viewMatrix"), skyboxView);
+		skyboxShader.SetUniform(skyboxShader.GetUniform("skybox"), 0);
 
 		graphics.BindCubemap(cubemap, 0);
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, skyboxVAO);

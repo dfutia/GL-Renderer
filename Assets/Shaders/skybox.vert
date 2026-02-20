@@ -1,15 +1,15 @@
 #version 330 core
 
-layout (location = 0) in vec3 aPos;
+layout(location = 0) in vec3 aPosition;
 
-out vec3 vTexCoords;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
 
-uniform mat4 uProjection;
-uniform mat4 uView; // translation-stripped view
+out vec3 vTexCoord;
 
 void main()
 {
-    vTexCoords = aPos;
-    vec4 pos = uProjection * uView * vec4(aPos, 1.0);
-    gl_Position = pos.xyww; // trick: set z = w so depth = 1.0 (always behind everything)
+    vTexCoord = aPosition;
+    vec4 pos = projectionMatrix * viewMatrix * vec4(aPosition, 1.0);
+    gl_Position = pos.xyww;
 }

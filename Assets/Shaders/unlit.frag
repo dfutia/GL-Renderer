@@ -1,20 +1,21 @@
 #version 330 core
 
-in vec2 fragTexCoord;
+in vec3 vWorldPos;
+in vec3 vNormal;
+in vec2 vTexCoord;
 
-struct Material {
-    vec3 diffuse;
-    float alpha;
-};
-
-uniform Material material;
+uniform vec4 color;
 uniform sampler2D texture0;
+uniform bool hasDiffuseTexture;
 
 out vec4 fragColor;
 
 void main()
 {
-    vec4 texColor = texture(texture0, fragTexCoord);
-    vec3 color = material.diffuse * texColor.rgb;
-    fragColor = vec4(color, material.alpha * texColor.a);
+    vec4 baseColor = color;
+    
+    if (hasDiffuseTexture)
+        baseColor *= texture(texture0, vTexCoord);
+    
+    fragColor = baseColor;
 }

@@ -101,11 +101,10 @@ private:
 	void ApplyProperties() const;
 	Uniform GetCachedUniform(const std::string& name) const;
 
-	static std::string GetPhongVertexShader();
+	static std::string GetStaticVertexShader();
+	static std::string GetSkinnedVertexShader();
 	static std::string GetPhongFragmentShader();
-	static std::string GetPBRVertexShader();
 	static std::string GetPBRFragmentShader();
-	static std::string GetUnlitVertexShader();
 	static std::string GetUnlitFragmentShader();
 };
 

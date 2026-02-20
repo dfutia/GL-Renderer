@@ -203,7 +203,7 @@ void Material::ApplyProperties() const
 
 Material Material::CreatePhongMaterial()
 {
-	Material material(GetPhongVertexShader(), GetPhongFragmentShader());
+	Material material(GetStaticVertexShader(), GetPhongFragmentShader());
 
 	MaterialProperties props;
 	props.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
@@ -217,7 +217,7 @@ Material Material::CreatePhongMaterial()
 
 Material Material::CreatePBRMaterial()
 {
-	Material material(GetPBRVertexShader(), GetPBRFragmentShader());
+	Material material(GetStaticVertexShader(), GetPBRFragmentShader());
 
 	MaterialProperties props;
 	props.albedo = glm::vec3(0.8f, 0.8f, 0.8f);
@@ -231,7 +231,7 @@ Material Material::CreatePBRMaterial()
 
 Material Material::CreateUnlitMaterial()
 {
-	Material material(GetUnlitVertexShader(), GetUnlitFragmentShader());
+	Material material(GetStaticVertexShader(), GetUnlitFragmentShader());
 
 	MaterialProperties props;
 	props.diffuse = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -241,9 +241,14 @@ Material Material::CreateUnlitMaterial()
 	return material;
 }
 
-std::string Material::GetPhongVertexShader()
+std::string Material::GetStaticVertexShader()
 {
-	return ReadTextFile((GetMediaPath() / "Shaders/phong.vert"));
+	return ReadTextFile((GetMediaPath() / "Shaders/static.vert"));
+}
+
+std::string Material::GetSkinnedVertexShader()
+{
+	return ReadTextFile((GetMediaPath() / "Shaders/skinned.vert"));
 }
 
 std::string Material::GetPhongFragmentShader()
@@ -251,19 +256,9 @@ std::string Material::GetPhongFragmentShader()
 	return ReadTextFile((GetMediaPath() / "Shaders/phong.frag"));
 }
 
-std::string Material::GetPBRVertexShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/pbr.vert"));
-}
-
 std::string Material::GetPBRFragmentShader()
 {
 	return ReadTextFile((GetMediaPath() / "Shaders/pbr.frag"));
-}
-
-std::string Material::GetUnlitVertexShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/unlit.vert"));
 }
 
 std::string Material::GetUnlitFragmentShader()

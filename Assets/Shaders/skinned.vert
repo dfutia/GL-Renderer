@@ -1,48 +1,43 @@
 #version 330 core
 
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 normal;
-layout(location = 2) in vec2 texcoord;
-layout(location = 3) in ivec4 boneIDs;
-layout(location = 4) in vec4 boneWeights;
-
-out vec3 Normal;
-out vec2 TexCoord;
-
-uniform mat4 mvp;
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aTexCoord;
+layout(location = 3) in ivec4 aBoneIDs;
+layout(location = 4) in vec4 aBoneWeights;
 
 const int MAX_BONES = 100;
+
+uniform mat4 modelMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
+uniform mat3 normalMatrix;
 uniform mat4 bones[MAX_BONES];
-uniform int useSkinning;
+
+out vec3 vWorldPos;
+out vec3 vNormal;
+out vec2 vTexCoord;
 
 void main()
 {
-    vec4 skinnedPosition;
-    vec3 skinnedNormal;
-
-    if (useSkinning == 1)
+    mat4 skinMatrix = mat4(0.0);
+    
+    for (int i = 0; i < 4; i++)
     {
-        mat4 skin = mat4(0.0);
-
-        for (int i = 0; i < 4; i++)
-        {
-            if (boneIDs[i] >= 0)
-                skin += bones[boneIDs[i]] * boneWeights[i];
-        }
-
-        if (skin == mat4(0.0))
-            skin = mat4(1.0);
-
-        skinnedPosition = skin * vec4(position, 1.0);
-        skinnedNormal = mat3(skin) * normal;
+        if (aBoneIDs[i] >= 0)
+            skinMatrix += bones[aBoneIDs[i]] * aBoneWeights[i];
     }
-    else
-    {
-        skinnedPosition = vec4(position, 1.0);
-        skinnedNormal = normal;
-    }
-
-    Normal = skinnedNormal;
-    TexCoord = texcoord;
-    gl_Position = mvp * skinnedPosition;
+    
+    if (skinMatrix == mat4(0.0))
+        skinMatrix = mat4(1.0);
+    
+    vec4 skinnedPos = skinMatrix * vec4(aPosition, 1.0);
+    vec3 skinnedNormal = mat3(skinMatrix) * aNormal;
+    
+    vec4 worldPos = modelMatrix * skinnedPos;
+    vWorldPos = worldPos.xyz;
+    vNormal = normalize(normalMatrix * skinnedNormal);
+    vTexCoord = aTexCoord;
+    
+    gl_Position = projectionMatrix * viewMatrix * worldPos;
 }
