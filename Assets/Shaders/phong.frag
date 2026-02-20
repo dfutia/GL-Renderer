@@ -1,4 +1,4 @@
-#version 150
+#version 330 core
 
 in vec3 fragPos;
 in vec3 fragNormal;
@@ -21,16 +21,14 @@ struct Light {
 uniform Material material;
 uniform Light light;
 uniform vec3 viewPos;
-uniform sampler2D diffuseTexture;
-uniform int hasDiffuseTexture;
+uniform sampler2D texture0;
 
 out vec4 fragColor;
 
 void main()
 {
-    vec3 color = material.diffuse;
-    if(hasDiffuseTexture != 0)
-        color *= texture(diffuseTexture, fragTexCoord).rgb;
+    vec4 texColor = texture(texture0, fragTexCoord);
+    vec3 color = material.diffuse * texColor.rgb;
     
     // Ambient
     vec3 ambient = material.ambient * color;
@@ -48,5 +46,5 @@ void main()
     vec3 specular = spec * light.color * material.specular;
     
     vec3 result = (ambient + diffuse + specular) * light.intensity;
-    fragColor = vec4(result, material.alpha);
+    fragColor = vec4(result, material.alpha * texColor.a);
 }

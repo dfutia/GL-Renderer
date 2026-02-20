@@ -177,9 +177,6 @@ int main(int argc, char* argv[])
 
 		mannequinModel.material.SetUniform("viewPos", camera.position);
 
-		mannequinModel.material.SetUniform("hasDiffuseTexture",
-			mannequinModel.material.HasTexture(Material::Diffuse) ? 1 : 0);
-
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
 		graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());
 
