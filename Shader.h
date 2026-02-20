@@ -6,6 +6,8 @@
 
 #include <glad/glad.h>
 
+#define GLSL( x ) "#version 330 core\n" #x
+
 class ShaderSource;
 
 class CompileException : public std::exception

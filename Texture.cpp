@@ -155,6 +155,31 @@ Texture LoadTexture(const std::string& filepath)
 	return texture;
 }
 
+Texture LoadTexture(const unsigned char* data, int byteLength)
+{
+	int width, height, channels;
+	unsigned char* pixels = stbi_load_from_memory(
+		data, byteLength,
+		&width, &height, &channels, 0);
+	if (!pixels)
+		throw std::runtime_error("Failed to decode texture from memory");
+	GLenum format;
+	switch (channels)
+	{
+	case 1: format = GL_RED;  break;
+	case 2: format = GL_RG;   break;
+	case 3: format = GL_RGB;  break;
+	default: format = GL_RGBA; break;
+	}
+	Texture texture;
+	texture.Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
+	texture.SetWrapping(Texture::Repeat, Texture::Repeat);
+	texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
+	texture.GenerateMipmaps();
+	stbi_image_free(pixels);
+	return texture;
+}
+
 Texture LoadCubemap(const std::array<std::string, 6>& faces)
 {
 	Texture texture;

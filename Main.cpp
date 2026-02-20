@@ -52,42 +52,42 @@ int main(int argc, char* argv[])
 	Model mannequinModel = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
 
 	// Basic vertex shader
-	const std::string vertexShaderSource = R"(
-        #version 330 core
-        layout (location = 0) in vec3 aPos;
-        layout (location = 1) in vec3 aNormal;
-        layout (location = 2) in vec2 aTexCoord;
+	const std::string vertexShaderSource = GLSL
+	(
+		layout(location = 0) in vec3 aPos;
+		layout(location = 1) in vec3 aNormal;
+		layout(location = 2) in vec2 aTexCoord;
 
-        uniform mat4 uMVP;
+		uniform mat4 uMVP;
 
-        out vec3 vNormal;
-        out vec2 vTexCoord;
+		out vec3 vNormal;
+		out vec2 vTexCoord;
 
-        void main()
-        {
-            gl_Position = uMVP * vec4(aPos, 1.0);
-            vNormal = aNormal;
-            vTexCoord = aTexCoord;
-        }
-    )";
+		void main()
+		{
+			gl_Position = uMVP * vec4(aPos, 1.0);
+			vNormal = aNormal;
+			vTexCoord = aTexCoord;
+		}
+	);
 
 	// Basic fragment shader
-	const std::string fragmentShaderSource = R"(
-        #version 330 core
-        in vec3 vNormal;
-        in vec2 vTexCoord;
+	const std::string fragmentShaderSource = GLSL
+	(
+		in vec3 vNormal;
+		in vec2 vTexCoord;
 
-        out vec4 FragColor;
+		out vec4 FragColor;
 
-        void main()
-        {
-            // Simple lighting based on normal direction
-            vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
-            float diff = max(dot(normalize(vNormal), lightDir), 0.0);
-            vec3 color = vec3(0.8) * (0.3 + 0.7 * diff); // ambient + diffuse
-            FragColor = vec4(color, 1.0);
-        }
-    )";
+		void main()
+		{
+			// Simple lighting based on normal direction
+			vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+			float diff = max(dot(normalize(vNormal), lightDir), 0.0);
+			vec3 color = vec3(0.8) * (0.3 + 0.7 * diff); // ambient + diffuse
+			FragColor = vec4(color, 1.0);
+		}
+	);
 
 	ShaderProgram shader(
 		Shader(Shader::Vertex, vertexShaderSource),

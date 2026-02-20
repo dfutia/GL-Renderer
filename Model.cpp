@@ -22,118 +22,70 @@ static glm::mat4 ToGlm(const aiMatrix4x4& m)
 
 static Texture LoadEmbeddedTexture(const aiTexture* aiTex)
 {
-    Texture texture;
-
     if (aiTex->mHeight == 0)
     {
-        // Compressed texture (PNG/JPG stored in memory)
-        int width, height, channels;
-        unsigned char* pixels = stbi_load_from_memory(
-            reinterpret_cast<const unsigned char*>(aiTex->pcData),
-            aiTex->mWidth, // mWidth is byte count when mHeight == 0
-            &width, &height, &channels, 0);
-
-        if (pixels)
-        {
-            GLenum format;
-            switch (channels)
-            {
-            case 1: format = GL_RED;  break;
-            case 2: format = GL_RG;   break;
-            case 3: format = GL_RGB;  break;
-            default: format = GL_RGBA; break;
-            }
-
-            texture.Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
-            texture.SetWrapping(Texture::Repeat, Texture::Repeat);
-            texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
-            texture.GenerateMipmaps();
-
-            stbi_image_free(pixels);
-        }
+        // Compressed (PNG/JPG) — mWidth is the byte count
+        return LoadTexture(reinterpret_cast<const unsigned char*>(aiTex->pcData),aiTex->mWidth);
     }
     else
     {
-        // Uncompressed ARGB8888
+        // Uncompressed ARGB8888 — raw pixel data
+        Texture texture;
         texture.Image2D(aiTex->pcData, GL_UNSIGNED_BYTE, GL_RGBA,
             aiTex->mWidth, aiTex->mHeight, GL_RGBA);
         texture.SetWrapping(Texture::Repeat, Texture::Repeat);
         texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
         texture.GenerateMipmaps();
+        return texture;
     }
-
-    return texture;
 }
 
-static bool ExtractDiffuseTexture(const aiScene* scene, const aiMesh* mesh, Material& material)
+static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh* mesh, aiTextureType type)
 {
     if (mesh->mMaterialIndex >= scene->mNumMaterials)
-        return false;
+        return std::nullopt;
 
     aiMaterial* aiMat = scene->mMaterials[mesh->mMaterialIndex];
 
     aiString texPath;
-    if (aiMat->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) != AI_SUCCESS)
-        return false;
+    if (aiMat->GetTexture(type, 0, &texPath) != AI_SUCCESS)
+        return std::nullopt;
 
     std::string path(texPath.C_Str());
 
-    // Check if it's an embedded texture reference (starts with '*')
-    if (path.length() > 0 && path[0] == '*')
+    // Embedded texture referenced by index e.g. "*0"
+    if (!path.empty() && path[0] == '*')
     {
         int texIndex = std::atoi(path.c_str() + 1);
         if (texIndex >= 0 && texIndex < (int)scene->mNumTextures)
-        {
-            Texture texture = LoadEmbeddedTexture(scene->mTextures[texIndex]);
-            material.SetTexture(Material::Diffuse, texture);
-            return true;
-        }
+            return LoadEmbeddedTexture(scene->mTextures[texIndex]);
+        return std::nullopt;
     }
 
-    // Check if the texture is embedded but referenced by filename
-    const aiTexture* embeddedTex = scene->GetEmbeddedTexture(path.c_str());
-    if (embeddedTex)
-    {
-        Texture texture = LoadEmbeddedTexture(embeddedTex);
-        material.SetTexture(Material::Diffuse, texture);
-        return true;
-    }
+    // Embedded texture referenced by filename
+    if (const aiTexture* embedded = scene->GetEmbeddedTexture(path.c_str()))
+        return LoadEmbeddedTexture(embedded);
 
-    // Try matching by filename only (strip the path)
+    // Match by filename only (strip path)
     std::string filename = path.substr(path.find_last_of("/\\") + 1);
     for (unsigned int i = 0; i < scene->mNumTextures; i++)
     {
         std::string embeddedName(scene->mTextures[i]->mFilename.C_Str());
         std::string embeddedFilename = embeddedName.substr(embeddedName.find_last_of("/\\") + 1);
         if (embeddedFilename == filename)
-        {
-            Texture texture = LoadEmbeddedTexture(scene->mTextures[i]);
-            material.SetTexture(Material::Diffuse, texture);
-            return true;
-        }
+            return LoadEmbeddedTexture(scene->mTextures[i]);
     }
 
-    // Last resort: just use the first embedded texture
-    if (scene->mNumTextures > 0)
-    {
-        Texture texture = LoadEmbeddedTexture(scene->mTextures[0]);
-        material.SetTexture(Material::Diffuse, texture);
-        return true;
-    }
-
-    // Fall back to loading from disk
+    // Fall back to disk
     try
     {
-        Texture texture = LoadTexture(path);
-        material.SetTexture(Material::Diffuse, texture);
-        return true;
+        return LoadTexture(path);
     }
     catch (...)
     {
         std::println("Warning: could not load texture '{}'", path);
+        return std::nullopt;
     }
-
-    return false;
 }
 
 static void BuildHierarchy(const aiNode* node, Skeleton& skeleton, int parentIndex)
@@ -215,7 +167,8 @@ Model LoadModel(const std::string& filepath)
 
     // --- Build material ---
     Material material = Material::CreateUnlitMaterial();
-    ExtractDiffuseTexture(scene, aiM, material);
+    if (auto texture = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
+        material.SetTexture(Material::Diffuse, *texture);
 
     Model result;
     result.mesh = *mesh;

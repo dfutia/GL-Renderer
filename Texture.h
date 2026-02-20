@@ -74,6 +74,7 @@ private:
 };
 
 Texture LoadTexture(const std::string& filepath);
+Texture LoadTexture(const unsigned char* data, int byteLength);
 Texture LoadCubemap(const std::array<std::string, 6>& faces);
 
 #endif 
