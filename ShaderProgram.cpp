@@ -37,7 +37,7 @@ ShaderProgram::ShaderProgram(const Shader& vertex, const Shader& fragment, const
 
 ShaderProgram::~ShaderProgram()
 {
-	glDeleteProgram(id);
+	//glDeleteProgram(id);
 }
 
 const ShaderProgram& ShaderProgram::operator=(const ShaderProgram& other)

@@ -8,6 +8,7 @@
 #include "Window.h"
 #include "Model.h"
 #include "Texture.h"
+#include "Camera.h"
 #include "GraphicsDevice.h"
 #include "VertexBuffer.h"
 #include "Shader.h"
@@ -51,49 +52,6 @@ int main(int argc, char* argv[])
 
 	Model mannequinModel = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
 
-	// Basic vertex shader
-	const std::string vertexShaderSource = GLSL
-	(
-		layout(location = 0) in vec3 aPos;
-		layout(location = 1) in vec3 aNormal;
-		layout(location = 2) in vec2 aTexCoord;
-
-		uniform mat4 uMVP;
-
-		out vec3 vNormal;
-		out vec2 vTexCoord;
-
-		void main()
-		{
-			gl_Position = uMVP * vec4(aPos, 1.0);
-			vNormal = aNormal;
-			vTexCoord = aTexCoord;
-		}
-	);
-
-	// Basic fragment shader
-	const std::string fragmentShaderSource = GLSL
-	(
-		in vec3 vNormal;
-		in vec2 vTexCoord;
-
-		out vec4 FragColor;
-
-		void main()
-		{
-			// Simple lighting based on normal direction
-			vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
-			float diff = max(dot(normalize(vNormal), lightDir), 0.0);
-			vec3 color = vec3(0.8) * (0.3 + 0.7 * diff); // ambient + diffuse
-			FragColor = vec4(color, 1.0);
-		}
-	);
-
-	ShaderProgram shader(
-		Shader(Shader::Vertex, vertexShaderSource),
-		Shader(Shader::Fragment, fragmentShaderSource)
-	);
-
 	VertexBuffer skyboxVBO(skyboxVertices, sizeof(skyboxVertices), VertexBuffer::StaticDraw);
 	VertexArray skyboxVAO;
 	skyboxVAO.BindAttribute(0, skyboxVBO, GL_FLOAT, 3, sizeof(float) * 3, 0);
@@ -126,28 +84,54 @@ int main(int argc, char* argv[])
 	);
 
 	// Camera
-	glm::vec3 cameraPosition = glm::vec3(0.0f, 100.0f, 300.0f);
-	glm::vec3 cameraTarget = glm::vec3(0.0f, 100.0f, 0.0f);
-	glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	Camera camera;
+	camera.position = glm::vec3(0.0f, 100.0f, 300.0f);
+
+	// light
+	glm::vec3 lightPosition = glm::vec3(200.0f, 300.0f, 200.0f);
+	glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+	float lightIntensity = 1.0f;
 
 	// Model
 	glm::vec3 modelPosition = glm::vec3(0.0f);
 	glm::vec3 modelRotation = glm::vec3(0.0f);
 	glm::vec3 modelScale = glm::vec3(1.0f);
 
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+	Uint64 lastTime = SDL_GetPerformanceCounter();
 	SDL_Event event;
-	while (true)
+	bool running = true;
+	while (running)
 	{
+		Uint64 currentTime = SDL_GetPerformanceCounter();
+		float deltaTime = (currentTime - lastTime) / (float)SDL_GetPerformanceFrequency();
+		lastTime = currentTime;
+
 		while (SDL_PollEvent(&event))
 		{
 			if (event.type == SDL_QUIT)
 			{
-				return 0;
+				running = false;
+			}
+			else if (event.type == SDL_MOUSEMOTION)
+			{
+				camera.ProcessMouseMovement((float)event.motion.xrel, -(float)event.motion.yrel);
+			}
+			else if (event.type == SDL_KEYDOWN)
+			{
+				// Press Escape to release mouse / quit
+				if (event.key.keysym.sym == SDLK_ESCAPE)
+				{
+					running = false;
+				}
 			}
 		}
 
+		const Uint8* keystate = SDL_GetKeyboardState(NULL);
+		camera.ProcessKeyboard(keystate, deltaTime);
+
 		// view: where the camera is and what it's looking at
-		glm::mat4 view = glm::lookAt(cameraPosition, cameraTarget, cameraUp);
+		glm::mat4 view = camera.GetViewMatrix();
 
 		// projection: the lens of the camera (perspective/FOV or orthographic, near/far clip planes)
 		glm::mat4 projection = glm::perspective(
@@ -178,8 +162,23 @@ int main(int argc, char* argv[])
 		graphics.SetDepthTest(true);
 
 		// model
-		glUseProgram(shader);
-		shader.SetUniform(shader.GetUniform("uMVP"), mvp);
+		mannequinModel.material.Apply();
+
+		mannequinModel.material.SetUniform("modelMatrix", model);
+		mannequinModel.material.SetUniform("viewMatrix", view);
+		mannequinModel.material.SetUniform("projectionMatrix", projection);
+
+		glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
+		mannequinModel.material.SetUniform("normalMatrix", normalMatrix);
+
+		mannequinModel.material.SetUniform("light.position", lightPosition);
+		mannequinModel.material.SetUniform("light.color", lightColor);
+		mannequinModel.material.SetUniform("light.intensity", lightIntensity);
+
+		mannequinModel.material.SetUniform("viewPos", camera.position);
+
+		mannequinModel.material.SetUniform("hasDiffuseTexture",
+			mannequinModel.material.HasTexture(Material::Diffuse) ? 1 : 0);
 
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
 		graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());

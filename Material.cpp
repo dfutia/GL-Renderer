@@ -197,6 +197,8 @@ void Material::ApplyProperties() const
 	program.SetUniform(specularUniform, properties.specular);
 	Uniform shininessUniform = GetCachedUniform("material.shininess");
 	program.SetUniform(shininessUniform, properties.shininess);
+	Uniform alphaUniform = GetCachedUniform("material.alpha");
+	program.SetUniform(alphaUniform, properties.alpha);
 }
 
 Material Material::CreatePhongMaterial()

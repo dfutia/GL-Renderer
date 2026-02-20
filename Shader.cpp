@@ -27,7 +27,7 @@ Shader::Shader(ShaderType type, const std::string& code)
 
 Shader::~Shader()
 {
-	glDeleteShader(id);
+	//glDeleteShader(id);
 }
 
 const Shader& Shader::operator=(const Shader& other)

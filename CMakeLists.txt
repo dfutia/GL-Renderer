@@ -28,7 +28,7 @@ find_package(imgui CONFIG REQUIRED)
 find_path(THOMASMONKMAN_FILEWATCH_INCLUDE_DIRS "thomasmonkman-filewatch/FileWatch.hpp")
 
 # Add source to this project's executable.
-add_executable (GLRenderer "Main.cpp"  "VertexBuffer.h" "UniformBuffer.h" "ShaderProgram.h" "Shader.h" "RenderBuffer.h" "Material.h" "FrameBuffer.h"  "Window.h" "Window.cpp" "VertexBuffer.cpp" "VertexArray.cpp" "File.h" "PCH.h" "Material.cpp" "FrameBuffer.cpp" "Model.h" "Mesh.h" "Model.cpp" "Mesh.cpp" "Animation.h" "Animation.cpp" "Shader.cpp" "ShaderProgram.cpp" "Texture.cpp" "GraphicsDevice.h" "GraphicsDevice.cpp" "Light.h")
+add_executable (GLRenderer "Main.cpp"  "VertexBuffer.h" "UniformBuffer.h" "ShaderProgram.h" "Shader.h" "RenderBuffer.h" "Material.h" "FrameBuffer.h"  "Window.h" "Window.cpp" "VertexBuffer.cpp" "VertexArray.cpp" "File.h" "PCH.h" "Material.cpp" "FrameBuffer.cpp" "Model.h" "Mesh.h" "Model.cpp" "Mesh.cpp" "Animation.h" "Animation.cpp" "Shader.cpp" "ShaderProgram.cpp" "Texture.cpp" "GraphicsDevice.h" "GraphicsDevice.cpp" "Light.h" "Camera.h")
 
 target_precompile_headers(GLRenderer PRIVATE
     "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/PCH.h>"
