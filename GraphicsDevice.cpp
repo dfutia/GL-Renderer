@@ -1,5 +1,7 @@
 #include "PCH.h"
 #include "GraphicsDevice.h"
+#include "Material.h"
+#include "ShaderProgram.h"
 
 GraphicsDevice::GraphicsDevice()
 {
@@ -75,6 +77,77 @@ void GraphicsDevice::SetDepthFunc(DepthFunc func)
     default:                   glFunc = GL_LESS;   break;
     }
     glDepthFunc(glFunc);
+}
+
+void GraphicsDevice::BindShader(const ShaderProgram& shader)
+{
+    currentShader = &shader;
+    glUseProgram(shader);
+}
+
+void GraphicsDevice::SetUniform(const std::string& name, int value)
+{
+    if (currentShader)
+        currentShader->SetUniform(currentShader->GetUniform(name), value);
+}
+
+void GraphicsDevice::SetUniform(const std::string& name, float value)
+{
+    if (currentShader)
+        currentShader->SetUniform(currentShader->GetUniform(name), value);
+}
+
+void GraphicsDevice::SetUniform(const std::string& name, const glm::vec2& value)
+{
+    if (currentShader)
+        currentShader->SetUniform(currentShader->GetUniform(name), value);
+}
+
+void GraphicsDevice::SetUniform(const std::string& name, const glm::vec3& value)
+{
+    if (currentShader)
+        currentShader->SetUniform(currentShader->GetUniform(name), value);
+}
+
+void GraphicsDevice::SetUniform(const std::string& name, const glm::vec4& value)
+{
+    if (currentShader)
+        currentShader->SetUniform(currentShader->GetUniform(name), value);
+}
+
+void GraphicsDevice::SetUniform(const std::string& name, const glm::mat3& value)
+{
+    if (currentShader)
+        currentShader->SetUniform(currentShader->GetUniform(name), value);
+}
+
+void GraphicsDevice::SetUniform(const std::string& name, const glm::mat4& value)
+{
+    if (currentShader)
+        currentShader->SetUniform(currentShader->GetUniform(name), value);
+}
+
+void GraphicsDevice::BindMaterial(const Material& material)
+{
+    if (!currentShader)
+        return;
+
+    // Bind textures by their slot
+    for (const auto& [slot, texture] : material.textures)
+    {
+        glActiveTexture(GL_TEXTURE0 + slot);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        SetUniform("texture" + std::to_string(slot), slot);
+    }
+
+    SetUniform("hasDiffuseTexture", material.HasTexture(Material::Diffuse) ? 1 : 0);
+
+    // Bind properties
+    SetUniform("material.ambient", material.properties.ambient);
+    SetUniform("material.diffuse", material.properties.diffuse);
+    SetUniform("material.specular", material.properties.specular);
+    SetUniform("material.shininess", material.properties.shininess);
+    SetUniform("material.alpha", material.properties.alpha);
 }
 
 void GraphicsDevice::BindResource(ResourceType type, unsigned int id)

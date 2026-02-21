@@ -111,6 +111,16 @@ int main(int argc, char* argv[])
 
 	GraphicsDevice graphics;
 
+	ShaderProgram phongShader(
+		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/static.vert")),
+		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/phong_shadow.frag"))
+	);
+
+	ShaderProgram depthShader(
+		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/depth.vert")),
+		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/depth.frag"))
+	);
+
 	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
 	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
 
@@ -122,7 +132,7 @@ int main(int argc, char* argv[])
 
 	Model cube;
 	cube.mesh = cubeMesh;
-	cube.material = Material::CreatePhongShadowMaterial();
+	cube.material = Material::CreateDefault();
 	cube.material.SetTexture(Material::Diffuse, containerTexture);
 
 	Object cubeObject;
@@ -132,7 +142,7 @@ int main(int argc, char* argv[])
 	// Floor
 	Model floor;
 	floor.mesh = cubeMesh;  // reuse the same mesh
-	floor.material = Material::CreatePhongShadowMaterial();
+	floor.material = Material::CreateDefault();
 	floor.material.SetTexture(Material::Diffuse, woodTexture);
 
 	Transform floorTransform;
@@ -166,11 +176,6 @@ int main(int argc, char* argv[])
 	ShaderProgram postProcessShader(
 		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/postprocess.vert")),
 		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/postprocess.frag"))
-	);
-
-	ShaderProgram depthShader(
-		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/depth.vert")),
-		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/depth.frag"))
 	);
 
 	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
@@ -253,23 +258,20 @@ int main(int argc, char* argv[])
 		graphics.Clear(false, true, false);
 		graphics.SetDepthTest(true);
 
-		graphics.BindResource(ResourceType::SHADER_PROGRAM, depthShader);
-		depthShader.SetUniform(depthShader.GetUniform("lightSpaceMatrix"), lightSpaceMatrix);
+		graphics.BindShader(depthShader);
+		graphics.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
 
 		// Render cubes to shadow map
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cubeObject.model->mesh.vao);
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cube.mesh.vao);
 		for (int i = 0; i < 10; i++)
 		{
-			glm::mat4 model = cubeTransforms[i].GetMatrix();
-			depthShader.SetUniform(depthShader.GetUniform("modelMatrix"), model);
-			graphics.DrawNonIndexed(cubeObject.model->mesh.VertexCount());
+			graphics.SetUniform("modelMatrix", cubeTransforms[i].GetMatrix());
+			graphics.DrawNonIndexed(cube.mesh.VertexCount());
 		}
 
-
 		// Render floor to shadow map
-		glm::mat4 floorModel = floorTransform.GetMatrix();
-		depthShader.SetUniform(depthShader.GetUniform("modelMatrix"), floorModel);
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);  // Changed from vbo to vao
+		graphics.SetUniform("modelMatrix", floorTransform.GetMatrix());
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);
 		graphics.DrawNonIndexed(floor.mesh.VertexCount());
 
 		// =====================
@@ -284,43 +286,32 @@ int main(int argc, char* argv[])
 		cube.material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
 		floor.material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
 
-		// Render cubes
-		cube.material.Apply();
-		cube.material.SetUniform("viewMatrix", view);
-		cube.material.SetUniform("projectionMatrix", projection);
-		cube.material.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
-		cube.material.SetUniform("light.position", lightPosition);
-		cube.material.SetUniform("light.color", lightColor);
-		cube.material.SetUniform("light.intensity", lightIntensity);
-		cube.material.SetUniform("viewPos", camera.position);
+		graphics.BindShader(phongShader);
+		graphics.SetUniform("viewMatrix", view);
+		graphics.SetUniform("projectionMatrix", projection);
+		graphics.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
+		graphics.SetUniform("light.position", lightPosition);
+		graphics.SetUniform("light.color", lightColor);
+		graphics.SetUniform("light.intensity", lightIntensity);
+		graphics.SetUniform("viewPos", camera.position);
 
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cubeObject.model->mesh.vao);
+		// Render cubes
+		graphics.BindMaterial(cube.material);
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cube.mesh.vao);
 		for (int i = 0; i < 10; i++)
 		{
 			glm::mat4 model = cubeTransforms[i].GetMatrix();
-			glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
-
-			cube.material.SetUniform("modelMatrix", model);
-			cube.material.SetUniform("normalMatrix", normalMatrix);
-
-			graphics.DrawNonIndexed(cubeObject.model->mesh.VertexCount());
+			graphics.SetUniform("modelMatrix", model);
+			graphics.SetUniform("normalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
+			graphics.DrawNonIndexed(cube.mesh.VertexCount());
 		}
 
 		// Render floor
-		floor.material.Apply();
-		floor.material.SetUniform("viewMatrix", view);
-		floor.material.SetUniform("projectionMatrix", projection);
-		floor.material.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
-		floor.material.SetUniform("light.position", lightPosition);
-		floor.material.SetUniform("light.color", lightColor);
-		floor.material.SetUniform("light.intensity", lightIntensity);
-		floor.material.SetUniform("viewPos", camera.position);
-
-		glm::mat3 floorNormalMatrix = glm::transpose(glm::inverse(glm::mat3(floorModel)));
-		floor.material.SetUniform("modelMatrix", floorModel);
-		floor.material.SetUniform("normalMatrix", floorNormalMatrix);
-
+		graphics.BindMaterial(floor.material);
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);
+		glm::mat4 floorModel = floorTransform.GetMatrix();
+		graphics.SetUniform("modelMatrix", floorModel);
+		graphics.SetUniform("normalMatrix", glm::transpose(glm::inverse(glm::mat3(floorModel))));
 		graphics.DrawNonIndexed(floor.mesh.VertexCount());
 
 		// =====================

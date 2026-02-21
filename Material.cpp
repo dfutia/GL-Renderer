@@ -1,296 +1,62 @@
 #include "PCH.h"
 #include "Material.h"
-#include "ShaderProgram.h"
-#include "Shader.h"
-#include "File.h"
-
-Material::Material()
-{
-	*this = CreateUnlitMaterial();
-}
-
-Material::Material(const Material& other) :
-	program(other.program),
-	properties(other.properties),
-	textures(other.textures),
-	uniformCache(other.uniformCache) {}
-
-Material::Material(const ShaderProgram& program) : program(program) {}
-
-Material::Material(const std::string& vertexShader, const std::string& fragmentShader)
-{
-	Shader vertex(Shader::ShaderType::Vertex, vertexShader);
-	Shader fragment(Shader::ShaderType::Fragment, fragmentShader);
-	program = ShaderProgram(vertex, fragment);
-}
-
-const Material& Material::operator=(const Material& other)
-{
-	if (this != &other)
-	{
-		program = other.program;
-		properties = other.properties;
-		textures = other.textures;
-		uniformCache = other.uniformCache;
-	}
-	return *this;
-}
-
-void Material::SetProgram(const ShaderProgram& program)
-{
-	this->program = program;
-	uniformCache.clear();
-}
-
-const ShaderProgram& Material::GetProgram() const
-{
-	return program;
-}
 
 void Material::SetTexture(TextureSlot slot, const Texture& texture)
 {
-	textures[slot] = texture;
+    textures[slot] = texture;
 }
 
 void Material::RemoveTexture(TextureSlot slot)
 {
-	textures.erase(slot);
+    textures.erase(slot);
 }
 
 bool Material::HasTexture(TextureSlot slot) const
 {
-	return textures.find(slot) != textures.end();
+    return textures.find(slot) != textures.end();
 }
 
 const Texture& Material::GetTexture(TextureSlot slot) const
 {
-	return textures.at(slot);
+    return textures.at(slot);
 }
 
-void Material::SetProperties(const MaterialProperties& properties)
+Material Material::CreateDefault()
 {
-	this->properties = properties;
+    Material material;
+    material.properties.ambient = glm::vec3(0.1f);
+    material.properties.diffuse = glm::vec3(0.8f);
+    material.properties.specular = glm::vec3(1.0f);
+    material.properties.shininess = 32.0f;
+    return material;
 }
 
-const MaterialProperties& Material::GetProperties() const
+Material Material::CreateMetal()
 {
-	return properties;
+    Material material;
+    material.properties.ambient = glm::vec3(0.05f);
+    material.properties.diffuse = glm::vec3(0.4f);
+    material.properties.specular = glm::vec3(1.0f);
+    material.properties.shininess = 128.0f;
+    return material;
 }
 
-MaterialProperties& Material::GetProperties()
+Material Material::CreateRough()
 {
-	return properties;
+    Material material;
+    material.properties.ambient = glm::vec3(0.1f);
+    material.properties.diffuse = glm::vec3(0.6f);
+    material.properties.specular = glm::vec3(0.2f);
+    material.properties.shininess = 8.0f;
+    return material;
 }
 
-void Material::SetAmbient(const glm::vec3& ambient)
+Material Material::CreatePBRDefault()
 {
-	properties.ambient = ambient;
-}
-
-void Material::SetDiffuse(const glm::vec3& diffuse)
-{
-	properties.diffuse = diffuse;
-}
-
-void Material::SetSpecular(const glm::vec3& specular)
-{
-	properties.specular = specular;
-}
-
-void Material::SetShininess(float shininess)
-{
-	properties.shininess = shininess;
-}
-
-void Material::SetEmission()
-{
-}
-
-void Material::SetAlpha()
-{
-}
-
-void Material::SetUniform(const std::string& name, int value)
-{
-	Uniform uniform = GetCachedUniform(name);
-	program.SetUniform(uniform, value);
-}
-
-void Material::SetUniform(const std::string& name, float value)
-{
-	Uniform uniform = GetCachedUniform(name);
-	program.SetUniform(uniform, value);
-}
-
-void Material::SetUniform(const std::string& name, const glm::vec2& value)
-{
-	Uniform uniform = GetCachedUniform(name);
-	program.SetUniform(uniform, value);
-}
-
-void Material::SetUniform(const std::string& name, const glm::vec3& value)
-{
-	Uniform uniform = GetCachedUniform(name);
-	program.SetUniform(uniform, value);
-}
-
-void Material::SetUniform(const std::string& name, const glm::vec4& value)
-{
-	Uniform uniform = GetCachedUniform(name);
-	program.SetUniform(uniform, value);
-}
-
-void Material::SetUniform(const std::string& name, const glm::mat3& value)
-{
-	Uniform uniform = GetCachedUniform(name);
-	program.SetUniform(uniform, value);
-}
-
-void Material::SetUniform(const std::string& name, const glm::mat4& value)
-{
-	Uniform uniform = GetCachedUniform(name);
-	program.SetUniform(uniform, value);
-}
-
-void Material::Apply() const
-{
-	glUseProgram(program);
-	ApplyTextures();
-	ApplyProperties();
-}
-
-Uniform Material::GetCachedUniform(const std::string& name) const
-{
-	auto it = uniformCache.find(name);
-	if (it != uniformCache.end())
-	{
-		return it->second;
-	}
-	else
-	{
-		Uniform uniform = program.GetUniform(name);
-		uniformCache[name] = uniform;
-		return uniform;
-	}
-}
-
-void Material::ApplyTextures() const
-{
-	for (const auto& pair : textures)
-	{
-		int textureUnit = pair.first;  // Use the slot enum value directly
-		glActiveTexture(GL_TEXTURE0 + textureUnit);
-		glBindTexture(GL_TEXTURE_2D, pair.second);
-		Uniform uniform = program.GetUniform("texture" + std::to_string(textureUnit));
-		program.SetUniform(uniform, textureUnit);
-	}
-
-	bool hasDiffuse = HasTexture(Diffuse);
-	Uniform hasDiffuseUniform = program.GetUniform("hasDiffuseTexture");
-	program.SetUniform(hasDiffuseUniform, hasDiffuse ? 1 : 0);
-}
-
-void Material::ApplyProperties() const
-{
-	Uniform ambientUniform = GetCachedUniform("material.ambient");
-	program.SetUniform(ambientUniform, properties.ambient);
-	Uniform diffuseUniform = GetCachedUniform("material.diffuse");
-	program.SetUniform(diffuseUniform, properties.diffuse);
-	Uniform specularUniform = GetCachedUniform("material.specular");
-	program.SetUniform(specularUniform, properties.specular);
-	Uniform shininessUniform = GetCachedUniform("material.shininess");
-	program.SetUniform(shininessUniform, properties.shininess);
-	Uniform alphaUniform = GetCachedUniform("material.alpha");
-	program.SetUniform(alphaUniform, properties.alpha);
-}
-
-Material Material::CreatePhongMaterial()
-{
-	Material material(GetStaticVertexShader(), GetPhongFragmentShader());
-
-	MaterialProperties props;
-	props.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-	props.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
-	props.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-	props.shininess = 32.0f;
-	material.SetProperties(props);
-
-	return material;
-}
-
-Material Material::CreatePBRMaterial()
-{
-	Material material(GetStaticVertexShader(), GetPBRFragmentShader());
-
-	MaterialProperties props;
-	props.albedo = glm::vec3(0.8f, 0.8f, 0.8f);
-	props.metallic = 0.0f;
-	props.roughness = 0.5f;
-	props.ao = 1.0f;
-	material.SetProperties(props);
-
-	return material;
-}
-
-Material Material::CreateUnlitMaterial()
-{
-	Material material(GetStaticVertexShader(), GetUnlitFragmentShader());
-
-	MaterialProperties props;
-	props.diffuse = glm::vec3(1.0f, 1.0f, 1.0f);
-	props.alpha = 1.0f;
-	material.SetProperties(props);
-
-	return material;
-}
-
-Material Material::CreatePhongShadowMaterial()
-{
-	Material material(GetStaticShadowVertexShader(), GetPhongShadowFragmentShader());
-
-	MaterialProperties props;
-	props.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-	props.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
-	props.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-	props.shininess = 32.0f;
-	material.SetProperties(props);
-
-	return material;
-}
-
-std::string Material::GetStaticVertexShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/static.vert"));
-}
-
-std::string Material::GetSkinnedVertexShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/skinned.vert"));
-}
-
-std::string Material::GetStaticShadowVertexShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/static_shadow.vert"));
-}
-
-
-
-std::string Material::GetPhongFragmentShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/phong.frag"));
-}
-
-std::string Material::GetPBRFragmentShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/pbr.frag"));
-}
-
-std::string Material::GetUnlitFragmentShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/unlit.frag"));
-}
-
-std::string Material::GetPhongShadowFragmentShader()
-{
-	return ReadTextFile((GetMediaPath() / "Shaders/phong_shadow.frag"));
+    Material material;
+    material.properties.albedo = glm::vec3(0.8f);
+    material.properties.metallic = 0.0f;
+    material.properties.roughness = 0.5f;
+    material.properties.ao = 1.0f;
+    return material;
 }

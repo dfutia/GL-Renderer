@@ -166,9 +166,16 @@ Model LoadModel(const std::string& filepath)
     mesh->vao->BindAttribute(2, *mesh->vbo, GL_FLOAT, 2, stride, sizeof(float) * 6);
 
     // --- Build material ---
-    Material material = Material::CreatePhongMaterial();
+    Material material = Material::CreateDefault();
+
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
         material.SetTexture(Material::Diffuse, *texture);
+
+    if (auto texture = ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
+        material.SetTexture(Material::Specular, *texture);
+
+    if (auto texture = ExtractTexture(scene, aiM, aiTextureType_NORMALS))
+        material.SetTexture(Material::Normal, *texture);
 
     Model result;
     result.mesh = *mesh;

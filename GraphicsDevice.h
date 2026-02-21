@@ -1,6 +1,9 @@
 #ifndef GRAPHICS_DEVICE_H
 #define GRAPHICS_DEVICE_H
 
+class ShaderProgram;
+class Material;
+
 enum class ResourceType
 {
 	SHADER_PROGRAM,
@@ -31,7 +34,18 @@ public:
 	void SetDepthWrite(bool enabled);
 	void SetDepthFunc(DepthFunc func);
 
+	// Shader
+	void BindShader(const ShaderProgram& shader);
+	void SetUniform(const std::string& name, int value);
+	void SetUniform(const std::string& name, float value);
+	void SetUniform(const std::string& name, const glm::vec2& value);
+	void SetUniform(const std::string& name, const glm::vec3& value);
+	void SetUniform(const std::string& name, const glm::vec4& value);
+	void SetUniform(const std::string& name, const glm::mat3& value);
+	void SetUniform(const std::string& name, const glm::mat4& value);
+
 	// Resource binding
+	void BindMaterial(const Material& material);
 	void BindResource(ResourceType type, unsigned int id);
 	void BindCubemap(unsigned int id, int slot = 0);
 	void BindFrameBuffer(int fbo = 0);
@@ -42,6 +56,7 @@ public:
 	void DrawNonIndexed(unsigned int numVertices);
 private:
 	float clearR = 0.0f, clearG = 0.0f, clearB = 0.0f, clearA = 1.0f;
+	const ShaderProgram* currentShader = nullptr;
 };
 
 #endif 

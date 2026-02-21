@@ -1,12 +1,7 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
-#include "ShaderProgram.h"
 #include "Texture.h"
-
-class ShaderProgram;
-
-typedef unsigned int Uniform;
 
 struct MaterialProperties
 {
@@ -46,17 +41,10 @@ public:
 		COUNT = 11
 	};
 
-	Material();
-	Material(const Material& other);
-	Material(const ShaderProgram& program);
-	Material(const std::string& vertexShader, const std::string& fragmentShader);
-
+	Material() = default;
+	Material(const Material& other) = default;
 	~Material() = default;
-
-	const Material& operator=(const Material& other);
-
-	void SetProgram(const ShaderProgram& program);
-	const ShaderProgram& GetProgram() const;
+	Material& operator=(const Material& other) = default;
 
 	void SetTexture(TextureSlot slot, const Texture& texture);
 	void SetTexture(TextureSlot slot, const std::string& filename);
@@ -64,53 +52,13 @@ public:
 	bool HasTexture(TextureSlot slot) const;
 	const Texture& GetTexture(TextureSlot slot) const;
 
-	void SetProperties(const MaterialProperties& properties);
-	const MaterialProperties& GetProperties() const;
-	MaterialProperties& GetProperties();
+	static Material CreateDefault();
+	static Material CreateMetal();
+	static Material CreateRough();
+	static Material CreatePBRDefault();
 
-	void SetAmbient(const glm::vec3& ambient);
-	void SetDiffuse(const glm::vec3& diffuse);
-	void SetSpecular(const glm::vec3& specular);
-	void SetShininess(float shininess);
-	void SetAlbedo();
-	void SetMetallic();
-	void SetRoughness();
-	void SetAO();
-	void SetEmission();
-	void SetAlpha();
-
-	void SetUniform(const std::string& name, int value);
-	void SetUniform(const std::string& name, float value);
-	void SetUniform(const std::string& name, const glm::vec2& value);
-	void SetUniform(const std::string& name, const glm::vec3& value);
-	void SetUniform(const std::string& name, const glm::vec4& value);
-	void SetUniform(const std::string& name, const glm::mat3& value);
-	void SetUniform(const std::string& name, const glm::mat4& value);
-
-	void Apply() const;
-
-	static Material CreatePhongMaterial();
-	static Material CreatePBRMaterial();
-	static Material CreateUnlitMaterial();
-	static Material CreatePhongShadowMaterial();
-private:
-	ShaderProgram program;
 	MaterialProperties properties;
 	std::map<TextureSlot, Texture> textures;
-	mutable std::map<std::string, Uniform> uniformCache;
-
-	void ApplyTextures() const;
-	void ApplyProperties() const;
-	Uniform GetCachedUniform(const std::string& name) const;
-
-	static std::string GetStaticVertexShader();
-	static std::string GetSkinnedVertexShader();
-	static std::string GetStaticShadowVertexShader();
-
-	static std::string GetPhongFragmentShader();
-	static std::string GetPBRFragmentShader();
-	static std::string GetUnlitFragmentShader();
-	static std::string GetPhongShadowFragmentShader();
 };
 
 class MaterialLibrary
