@@ -1,22 +1,27 @@
 ﻿#include <SDL.h>
 
 #include "PCH.h"
-#include "File.h"
-#include "Window.h"
-#include "Model.h"
-#include "Texture.h"
-#include "Camera.h"
-#include "GraphicsDevice.h"
-#include "VertexBuffer.h"
-#include "Shader.h"
-#include "ShaderProgram.h"
-#include "FrameBuffer.h"
-#include "Material.h"
-#include "Transform.h"
-#include "Mesh.h"
+
+#include "Platform/Window.h"
+#include "Platform/File.h"
+
 #include "Actors/Actor.h"
 #include "Actors/TransformComponent.h"
 #include "Actors/ModelComponent.h"
+#include "Actors/SkinnedModelComponent.h"
+
+#include "Rendering/Skybox.h"
+#include "Rendering/Model.h"
+#include "Rendering/Camera.h"
+#include "Rendering/Mesh.h"
+#include "Rendering/Material.h"
+
+#include "Graphics/GraphicsDevice.h"
+#include "Graphics/Texture.h"
+#include "Graphics/Shader.h"
+#include "Graphics/ShaderProgram.h"
+#include "Graphics/FrameBuffer.h"
+#include "Graphics/VertexBuffer.h"
 
 const unsigned int SHADOW_WIDTH = 2048;
 const unsigned int SHADOW_HEIGHT = 2048;
@@ -87,18 +92,6 @@ float quadVertices[] = {
 	 1.0f,  1.0f,  1.0f, 1.0f
 };
 
-struct Object
-{
-	Model* model;
-	Transform transform;
-
-	glm::mat4 GetWorldMatrix() const
-	{
-		glm::mat4 local = transform.GetMatrix();
-		return local;
-	}
-};
-
 int main(int argc, char* argv[])
 {
 	Window::Config windowConfig;
@@ -114,6 +107,11 @@ int main(int argc, char* argv[])
 
 	GraphicsDevice graphics;
 
+	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
+	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
+
+	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
+
 	ShaderProgram phongShader(
 		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/static.vert")),
 		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/phong_shadow.frag"))
@@ -124,8 +122,14 @@ int main(int argc, char* argv[])
 		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/depth.frag"))
 	);
 
-	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
-	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
+	Skybox skybox = LoadSkybox({
+	(GetMediaPath() / "Skybox/right.jpg").string(),
+	(GetMediaPath() / "Skybox/left.jpg").string(),
+	(GetMediaPath() / "Skybox/top.jpg").string(),
+	(GetMediaPath() / "Skybox/bottom.jpg").string(),
+	(GetMediaPath() / "Skybox/front.jpg").string(),
+	(GetMediaPath() / "Skybox/back.jpg").string()
+		});
 
 	Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
 	Material cubeMaterial = Material::CreateDefault();
@@ -160,35 +164,12 @@ int main(int argc, char* argv[])
 
 	actors.push_back(std::move(floor));
 
+	auto mannequinActor = std::make_unique<Actor>();
 
-	VertexBuffer skyboxVBO(skyboxVertices, sizeof(skyboxVertices), VertexBuffer::StaticDraw);
-	VertexArray skyboxVAO;
-	skyboxVAO.BindAttribute(0, skyboxVBO, GL_FLOAT, 3, sizeof(float) * 3, 0);
+	mannequinActor->AddComponent<TransformComponent>();
+	mannequinActor->AddComponent<ModelComponent>(mannequin.mesh, mannequin.material);
 
-	Texture cubemap = LoadCubemap({
-		(GetMediaPath() / "Skybox/right.jpg").string(),
-		(GetMediaPath() / "Skybox/left.jpg").string(),
-		(GetMediaPath() / "Skybox/top.jpg").string(),
-		(GetMediaPath() / "Skybox/bottom.jpg").string(),
-		(GetMediaPath() / "Skybox/front.jpg").string(),
-		(GetMediaPath() / "Skybox/back.jpg").string()
-		});
-
-	ShaderProgram skyboxShader(
-		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/skybox.vert")),
-		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/skybox.frag"))
-	);
-
-	VertexBuffer quadVBO(quadVertices, sizeof(quadVertices), VertexBuffer::StaticDraw);
-	VertexArray quadVAO;
-	unsigned int quadStride = sizeof(float) * 4;
-	quadVAO.BindAttribute(0, quadVBO, GL_FLOAT, 2, quadStride, 0);
-	quadVAO.BindAttribute(1, quadVBO, GL_FLOAT, 2, quadStride, sizeof(float) * 2);
-
-	ShaderProgram postProcessShader(
-		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/postprocess.vert")),
-		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/postprocess.frag"))
-	);
+	actors.push_back(std::move(mannequinActor));
 
 	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
 	FrameBuffer shadowMap(SHADOW_WIDTH, SHADOW_HEIGHT, FrameBuffer::DepthOnly, 0, 24);
@@ -201,14 +182,6 @@ int main(int argc, char* argv[])
 	glm::vec3 lightPosition = glm::vec3(200.0f, 300.0f, 200.0f);
 	glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 	float lightIntensity = 1.0f;
-
-	std::vector<Transform> cubeTransforms(10);
-	for (int i = 0; i < 10; i++)
-	{
-		cubeTransforms[i].position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f); // spread along X
-		cubeTransforms[i].rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);     // vary rotations
-		cubeTransforms[i].scale = glm::vec3(5.0f);
-	}
 
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	Uint64 lastTime = SDL_GetPerformanceCounter();
@@ -322,22 +295,7 @@ int main(int argc, char* argv[])
 		// =====================
 		// Skybox
 		// =====================
-		graphics.SetDepthWrite(false);
-		graphics.SetDepthFunc(DepthFunc::LessEqual);
-
-		graphics.BindResource(ResourceType::SHADER_PROGRAM, skyboxShader);
-
-		glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
-		skyboxShader.SetUniform(skyboxShader.GetUniform("projectionMatrix"), projection);
-		skyboxShader.SetUniform(skyboxShader.GetUniform("viewMatrix"), skyboxView);
-		skyboxShader.SetUniform(skyboxShader.GetUniform("skybox"), 0);
-
-		graphics.BindCubemap(cubemap, 0);
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, skyboxVAO);
-		graphics.DrawNonIndexed(36);
-
-		graphics.SetDepthWrite(true);
-		graphics.SetDepthFunc(DepthFunc::Less);
+		graphics.DrawSkybox(skybox, view, projection);
 
 		window.SwapBuffers();
 	}

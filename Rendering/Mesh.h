@@ -1,9 +1,9 @@
 #ifndef MESH_H
 #define MESH_H
 
-#include "VertexArray.h"
-#include "VertexBuffer.h"
-#include "Animation.h"
+#include "Graphics/VertexArray.h"
+#include "Graphics/VertexBuffer.h"
+#include "Animation/Animation.h"
 
 struct Mesh
 {

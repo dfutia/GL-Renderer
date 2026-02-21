@@ -1,7 +1,7 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
 
-#include "Texture.h"
+#include "Graphics/Texture.h"
 
 struct MaterialProperties
 {

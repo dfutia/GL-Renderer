@@ -3,8 +3,8 @@
 #include <assimp/postprocess.h>
 
 #include "VertexBuffer.h"
-#include "File.h"
-#include "Mesh.h"
+#include "Platform/File.h"
+#include "Rendering/Mesh.h"
 
 VertexBuffer::VertexBuffer()
 {

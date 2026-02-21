@@ -6,9 +6,9 @@
 
 #include "PCH.h"
 #include "Model.h"
-#include "File.h"
+#include "Platform/File.h"
 #include "Mesh.h"
-#include "Texture.h"
+#include "Graphics/Texture.h"
 
 static glm::mat4 ToGlm(const aiMatrix4x4& m)
 {

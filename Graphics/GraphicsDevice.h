@@ -3,6 +3,7 @@
 
 class ShaderProgram;
 class Material;
+struct Skybox;
 
 enum class ResourceType
 {
@@ -54,6 +55,8 @@ public:
 	void DrawIndexed(unsigned int numTriangle);
 	void DrawInstanced(unsigned int numTriangle, unsigned int numInstance);
 	void DrawNonIndexed(unsigned int numVertices);
+
+	void DrawSkybox(const Skybox& skybox, const glm::mat4& view, const glm::mat4& projection);
 private:
 	float clearR = 0.0f, clearG = 0.0f, clearB = 0.0f, clearA = 1.0f;
 	const ShaderProgram* currentShader = nullptr;

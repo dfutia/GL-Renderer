@@ -2,8 +2,8 @@
 #define MODEL_COMPONENT_H
 
 #include "ActorComponent.h"
-#include "Mesh.h"
-#include "Material.h"
+#include "Rendering/Mesh.h"
+#include "Rendering/Material.h"
 
 class ModelComponent : public ActorComponent
 {

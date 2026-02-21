@@ -3,6 +3,7 @@
 
 #include "Mesh.h"
 #include "Material.h"
+#include "Animation/Animation.h"
 
 struct Model
 {

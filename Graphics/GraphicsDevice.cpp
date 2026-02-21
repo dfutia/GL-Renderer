@@ -1,7 +1,8 @@
 #include "PCH.h"
 #include "GraphicsDevice.h"
-#include "Material.h"
 #include "ShaderProgram.h"
+#include "Rendering/Material.h"
+#include "Rendering/Skybox.h"
 
 GraphicsDevice::GraphicsDevice()
 {
@@ -191,4 +192,24 @@ void GraphicsDevice::DrawInstanced(unsigned int numTriangle, unsigned int numIns
 void GraphicsDevice::DrawNonIndexed(unsigned int numVertices)
 {
     glDrawArrays(GL_TRIANGLES, 0, numVertices);
+}
+
+void GraphicsDevice::DrawSkybox(const Skybox& skybox, const glm::mat4& view, const glm::mat4& projection)
+{
+    SetDepthWrite(false);
+    SetDepthFunc(DepthFunc::LessEqual);
+
+    BindShader(skybox.shader);
+
+    glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
+    SetUniform("viewMatrix", skyboxView);
+    SetUniform("projectionMatrix", projection);
+    SetUniform("skybox", 0);
+
+    BindCubemap(skybox.cubemap, 0);
+    BindResource(ResourceType::VERTEX_BUFFER, *skybox.vao);
+    DrawNonIndexed(36);
+
+    SetDepthWrite(true);
+    SetDepthFunc(DepthFunc::Less);
 }
