@@ -1,9 +1,18 @@
 #version 330 core
 
+out vec4 FragColor;
+
 in vec3 vWorldPos;
 in vec3 vNormal;
 in vec2 vTexCoord;
 in vec4 vLightSpacePos;
+
+struct Light
+{
+    vec3 direction;
+    vec3 color;
+    float intensity;
+};
 
 struct Material
 {
@@ -13,69 +22,58 @@ struct Material
     float shininess;
 };
 
-struct Light
-{
-    vec3 position;
-    vec3 color;
-    float intensity;
-};
-
-uniform Material material;
 uniform Light light;
+uniform Material material;
 uniform vec3 viewPos;
+
 uniform sampler2D texture0;
 uniform sampler2D texture10;
-uniform bool hasDiffuseTexture;
+uniform int hasDiffuseTexture;
 
-out vec4 fragColor;
-
-float CalculateShadow(vec3 normal, vec3 lightDir)
+float ShadowCalculation(vec4 fragPosLightSpace)
 {
-    vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
-    
+
     if (projCoords.z > 1.0)
         return 0.0;
-    
+
+    float closestDepth = texture(texture10, projCoords.xy).r;
     float currentDepth = projCoords.z;
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-    
-    float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(texture10, 0);
-    for (int x = -1; x <= 1; x++)
-    {
-        for (int y = -1; y <= 1; y++)
-        {
-            float pcfDepth = texture(texture10, projCoords.xy + vec2(x, y) * texelSize).r;
-            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
-        }
-    }
-    shadow /= 9.0;
-    
+    float bias = 0.005;
+    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+
     return shadow;
 }
 
 void main()
 {
-    vec3 baseColor = material.diffuse;
-    if (hasDiffuseTexture)
-        baseColor *= texture(texture0, vTexCoord).rgb;
-    
     vec3 normal = normalize(vNormal);
-    vec3 lightDir = normalize(light.position - vWorldPos);
+    vec3 lightDir = normalize(-light.direction);
     vec3 viewDir = normalize(viewPos - vWorldPos);
-    vec3 reflectDir = reflect(-lightDir, normal);
-    
-    vec3 ambient = material.ambient * baseColor;
-    
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+
+    // Ambient
+    vec3 ambient = material.ambient;
+
+    // Diffuse
     float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * light.color * baseColor;
-    
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    vec3 specular = spec * light.color * material.specular;
-    
-    float shadow = CalculateShadow(normal, lightDir);
-    
-    vec3 result = ambient + (1.0 - shadow) * (diffuse + specular) * light.intensity;
-    fragColor = vec4(result, 1.0);
+    vec3 diffuse = diff * material.diffuse;
+
+    // Specular
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    vec3 specular = spec * material.specular;
+
+    // Shadow
+    float shadow = ShadowCalculation(vLightSpacePos);
+
+    // Combine
+    vec3 lighting = ambient + (1.0 - shadow) * (diffuse + specular) * light.color * light.intensity;
+
+    // Texture
+    vec3 texColor = vec3(1.0);
+    if (hasDiffuseTexture == 1)
+        texColor = texture(texture0, vTexCoord).rgb;
+
+    FragColor = vec4(lighting * texColor, 1.0);
 }

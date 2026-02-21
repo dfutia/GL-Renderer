@@ -3,6 +3,7 @@
 #include "ShaderProgram.h"
 #include "Rendering/Material.h"
 #include "Rendering/Skybox.h"
+#include "Rendering/Light.h"
 
 GraphicsDevice::GraphicsDevice()
 {
@@ -79,6 +80,14 @@ void GraphicsDevice::SetDepthFunc(DepthFunc func)
     }
     glDepthFunc(glFunc);
 }
+
+void GraphicsDevice::SetLight(const DirectionalLight& light)
+{
+    SetUniform("light.direction", light.direction);
+    SetUniform("light.color", light.color);
+    SetUniform("light.intensity", light.intensity);
+}
+
 
 void GraphicsDevice::BindShader(const ShaderProgram& shader)
 {

@@ -3,7 +3,9 @@
 
 class ShaderProgram;
 class Material;
+
 struct Skybox;
+struct DirectionalLight;
 
 enum class ResourceType
 {
@@ -34,6 +36,8 @@ public:
 	void SetCullFaceMode(bool front);
 	void SetDepthWrite(bool enabled);
 	void SetDepthFunc(DepthFunc func);
+
+	void SetLight(const DirectionalLight& light);
 
 	// Shader
 	void BindShader(const ShaderProgram& shader);

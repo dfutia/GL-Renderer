@@ -18,6 +18,7 @@
 #include "Rendering/Camera.h"
 #include "Rendering/Mesh.h"
 #include "Rendering/Material.h"
+#include "Rendering/Light.h"
 
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/Texture.h"
@@ -192,9 +193,10 @@ int main(int argc, char* argv[])
 	camera.position = glm::vec3(0.0f, 100.0f, 300.0f);
 
 	// light
-	glm::vec3 lightPosition = glm::vec3(200.0f, 300.0f, 200.0f);
-	glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-	float lightIntensity = 1.0f;
+	DirectionalLight light;
+	light.direction = glm::normalize(glm::vec3(-200.0f, -300.0f, -200.0f));
+	light.color = glm::vec3(1.0f);
+	light.intensity = 1.0f;
 
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	Uint64 lastTime = SDL_GetPerformanceCounter();
@@ -250,7 +252,8 @@ int main(int argc, char* argv[])
 		float orthoSize = 600.0f;
 
 		glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
-		glm::mat4 lightView = glm::lookAt(lightPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::vec3 lightPos = -light.direction * 500.0f;
+		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
 		graphics.SetViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -286,10 +289,9 @@ int main(int argc, char* argv[])
 		graphics.SetUniform("viewMatrix", view);
 		graphics.SetUniform("projectionMatrix", projection);
 		graphics.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
-		graphics.SetUniform("light.position", lightPosition);
-		graphics.SetUniform("light.color", lightColor);
-		graphics.SetUniform("light.intensity", lightIntensity);
 		graphics.SetUniform("viewPos", camera.position);
+
+		graphics.SetLight(light);
 
 		for (auto& actor : actors)
 		{
