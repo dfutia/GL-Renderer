@@ -10,7 +10,7 @@ public:
 	virtual ~ActorComponent() = default;
 
 	Actor* GetOwner() const { return owner; }
-private:
+protected:
 	Actor* owner = nullptr;
 	friend class Actor;
 };

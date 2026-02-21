@@ -5,8 +5,11 @@
 #include "Platform/Window.h"
 #include "Platform/File.h"
 
+#include "Physics/PhysicsWorld.h"
+
 #include "Actors/Actor.h"
 #include "Actors/TransformComponent.h"
+#include "Actors/PhysicsComponent.h"
 #include "Actors/ModelComponent.h"
 #include "Actors/SkinnedModelComponent.h"
 
@@ -107,6 +110,8 @@ int main(int argc, char* argv[])
 
 	GraphicsDevice graphics;
 
+	PhysicsWorld physics;
+
 	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
 	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
 
@@ -151,6 +156,10 @@ int main(int argc, char* argv[])
 
 		cube->AddComponent<ModelComponent>(cubeMesh, cubeMaterial);
 
+		auto* phys = cube->AddComponent<PhysicsComponent>(physics);
+		phys->SetMass(1.0f);
+		phys->SetBoxShape(glm::vec3(5.0f, 5.0f, 5.0f));
+
 		actors.push_back(std::move(cube));
 	}
 
@@ -161,6 +170,10 @@ int main(int argc, char* argv[])
 	floorTransform->scale = glm::vec3(500.0f, 1.0f, 500.0f);
 
 	floor->AddComponent<ModelComponent>(cubeMesh, floorMaterial);
+
+	auto* floorPhys = floor->AddComponent<PhysicsComponent>(physics);
+	floorPhys->SetMass(0.0f);
+	floorPhys->SetBoxShape(glm::vec3(500.0f, 1.0f, 500.0f));
 
 	actors.push_back(std::move(floor));
 
@@ -215,6 +228,8 @@ int main(int argc, char* argv[])
 
 		const Uint8* keystate = SDL_GetKeyboardState(NULL);
 		camera.ProcessKeyboard(keystate, deltaTime);
+
+		physics.Update(deltaTime);
 
 		// view: where the camera is and what it's looking at
 		glm::mat4 view = camera.GetViewMatrix();
