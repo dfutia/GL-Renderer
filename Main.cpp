@@ -14,6 +14,9 @@
 #include "Material.h"
 #include "Transform.h"
 #include "Mesh.h"
+#include "Actors/Actor.h"
+#include "Actors/TransformComponent.h"
+#include "Actors/ModelComponent.h"
 
 const unsigned int SHADOW_WIDTH = 2048;
 const unsigned int SHADOW_HEIGHT = 2048;
@@ -124,30 +127,39 @@ int main(int argc, char* argv[])
 	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
 	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
 
-	Model mannequinModel = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
-	Object mannequinObject;
-	mannequinObject.model = &mannequinModel;
-
 	Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
+	Material cubeMaterial = Material::CreateDefault();
+	cubeMaterial.SetTexture(Material::Diffuse, containerTexture);
 
-	Model cube;
-	cube.mesh = cubeMesh;
-	cube.material = Material::CreateDefault();
-	cube.material.SetTexture(Material::Diffuse, containerTexture);
+	Material floorMaterial = Material::CreateDefault();
+	floorMaterial.SetTexture(Material::Diffuse, woodTexture);
 
-	Object cubeObject;
-	cubeObject.model = &cube;
-	cubeObject.transform.scale = glm::vec3(10.0f);
+	std::vector<std::unique_ptr<Actor>> actors;
 
-	// Floor
-	Model floor;
-	floor.mesh = cubeMesh;  // reuse the same mesh
-	floor.material = Material::CreateDefault();
-	floor.material.SetTexture(Material::Diffuse, woodTexture);
+	for (int i = 0; i < 10; i++)
+	{
+		auto cube = std::make_unique<Actor>();
 
-	Transform floorTransform;
-	floorTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);  // below the cubes
-	floorTransform.scale = glm::vec3(500.0f, 1.0f, 500.0f);   // wide and thin
+		auto* transform = cube->AddComponent<TransformComponent>();
+		transform->position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f);
+		transform->rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);
+		transform->scale = glm::vec3(5.0f);
+
+		cube->AddComponent<ModelComponent>(cubeMesh, cubeMaterial);
+
+		actors.push_back(std::move(cube));
+	}
+
+	auto floor = std::make_unique<Actor>();
+
+	auto* floorTransform = floor->AddComponent<TransformComponent>();
+	floorTransform->position = glm::vec3(0.0f, -50.0f, 0.0f);
+	floorTransform->scale = glm::vec3(500.0f, 1.0f, 500.0f);
+
+	floor->AddComponent<ModelComponent>(cubeMesh, floorMaterial);
+
+	actors.push_back(std::move(floor));
+
 
 	VertexBuffer skyboxVBO(skyboxVertices, sizeof(skyboxVertices), VertexBuffer::StaticDraw);
 	VertexArray skyboxVAO;
@@ -261,18 +273,18 @@ int main(int argc, char* argv[])
 		graphics.BindShader(depthShader);
 		graphics.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
 
-		// Render cubes to shadow map
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cube.mesh.vao);
-		for (int i = 0; i < 10; i++)
+		for (auto& actor : actors)
 		{
-			graphics.SetUniform("modelMatrix", cubeTransforms[i].GetMatrix());
-			graphics.DrawNonIndexed(cube.mesh.VertexCount());
-		}
+			auto* transform = actor->GetComponent<TransformComponent>();
+			auto* model = actor->GetComponent<ModelComponent>();
 
-		// Render floor to shadow map
-		graphics.SetUniform("modelMatrix", floorTransform.GetMatrix());
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);
-		graphics.DrawNonIndexed(floor.mesh.VertexCount());
+			if (!transform || !model)
+				continue;
+
+			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
+			graphics.SetUniform("modelMatrix", transform->GetMatrix());
+			graphics.DrawNonIndexed(model->mesh.VertexCount());
+		}
 
 		// =====================
 		// PASS 2: Scene with shadows
@@ -281,10 +293,6 @@ int main(int argc, char* argv[])
 		graphics.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
 		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
 		graphics.Clear(true, true, false);
-
-		// Set shadow map on both materials
-		cube.material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
-		floor.material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
 
 		graphics.BindShader(phongShader);
 		graphics.SetUniform("viewMatrix", view);
@@ -295,24 +303,21 @@ int main(int argc, char* argv[])
 		graphics.SetUniform("light.intensity", lightIntensity);
 		graphics.SetUniform("viewPos", camera.position);
 
-		// Render cubes
-		graphics.BindMaterial(cube.material);
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cube.mesh.vao);
-		for (int i = 0; i < 10; i++)
+		for (auto& actor : actors)
 		{
-			glm::mat4 model = cubeTransforms[i].GetMatrix();
-			graphics.SetUniform("modelMatrix", model);
-			graphics.SetUniform("normalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
-			graphics.DrawNonIndexed(cube.mesh.VertexCount());
-		}
+			auto* transform = actor->GetComponent<TransformComponent>();
+			auto* model = actor->GetComponent<ModelComponent>();
 
-		// Render floor
-		graphics.BindMaterial(floor.material);
-		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);
-		glm::mat4 floorModel = floorTransform.GetMatrix();
-		graphics.SetUniform("modelMatrix", floorModel);
-		graphics.SetUniform("normalMatrix", glm::transpose(glm::inverse(glm::mat3(floorModel))));
-		graphics.DrawNonIndexed(floor.mesh.VertexCount());
+			if (!transform || !model)
+				continue;
+
+			model->material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
+			graphics.BindMaterial(model->material);
+			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
+			graphics.SetUniform("modelMatrix", transform->GetMatrix());
+			graphics.SetUniform("normalMatrix", transform->GetNormalMatrix());
+			graphics.DrawNonIndexed(model->mesh.VertexCount());
+		}
 
 		// =====================
 		// Skybox
