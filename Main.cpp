@@ -15,6 +15,9 @@
 #include "Transform.h"
 #include "Mesh.h"
 
+const unsigned int SHADOW_WIDTH = 2048;
+const unsigned int SHADOW_HEIGHT = 2048;
+
 float cubeVerticesWithNormalsAndUVs[] = {
 	// positions          // normals           // texcoords
 	// Back face
@@ -119,17 +122,17 @@ int main(int argc, char* argv[])
 
 	Model cube;
 	cube.mesh = cubeMesh;
-	cube.material = Material::CreatePhongMaterial();
+	cube.material = Material::CreatePhongShadowMaterial();
+	cube.material.SetTexture(Material::Diffuse, containerTexture);
 
 	Object cubeObject;
 	cubeObject.model = &cube;
 	cubeObject.transform.scale = glm::vec3(10.0f);
-	cubeObject.model->material.SetTexture(Material::Diffuse, containerTexture);
 
 	// Floor
 	Model floor;
 	floor.mesh = cubeMesh;  // reuse the same mesh
-	floor.material = Material::CreatePhongMaterial();
+	floor.material = Material::CreatePhongShadowMaterial();
 	floor.material.SetTexture(Material::Diffuse, woodTexture);
 
 	Transform floorTransform;
@@ -160,12 +163,18 @@ int main(int argc, char* argv[])
 	quadVAO.BindAttribute(0, quadVBO, GL_FLOAT, 2, quadStride, 0);
 	quadVAO.BindAttribute(1, quadVBO, GL_FLOAT, 2, quadStride, sizeof(float) * 2);
 
-	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), 32, 24);
-
 	ShaderProgram postProcessShader(
 		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/postprocess.vert")),
 		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/postprocess.frag"))
 	);
+
+	ShaderProgram depthShader(
+		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/depth.vert")),
+		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/depth.frag"))
+	);
+
+	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
+	FrameBuffer shadowMap(SHADOW_WIDTH, SHADOW_HEIGHT, FrameBuffer::DepthOnly, 0, 24);
 
 	// Camera
 	Camera camera;
@@ -229,84 +238,100 @@ int main(int argc, char* argv[])
 		);
 
 		// =====================
-		// PASS 1: Render scene to FBO
+		// PASS 1: Shadow map
 		// =====================
-		//graphics.BindFrameBuffer(sceneFBO);
+		float nearPlane = 1.0f;
+		float farPlane = 1500.0f;
+		float orthoSize = 600.0f;
+
+		glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
+		glm::mat4 lightView = glm::lookAt(lightPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+		graphics.SetViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		graphics.BindFrameBuffer(shadowMap);
+		graphics.Clear(false, true, false);
+		graphics.SetDepthTest(true);
+
+		graphics.BindResource(ResourceType::SHADER_PROGRAM, depthShader);
+		depthShader.SetUniform(depthShader.GetUniform("lightSpaceMatrix"), lightSpaceMatrix);
+
+		// Render cubes to shadow map
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cubeObject.model->mesh.vao);
+		for (int i = 0; i < 10; i++)
+		{
+			glm::mat4 model = cubeTransforms[i].GetMatrix();
+			depthShader.SetUniform(depthShader.GetUniform("modelMatrix"), model);
+			graphics.DrawNonIndexed(cubeObject.model->mesh.VertexCount());
+		}
+
+
+		// Render floor to shadow map
+		glm::mat4 floorModel = floorTransform.GetMatrix();
+		depthShader.SetUniform(depthShader.GetUniform("modelMatrix"), floorModel);
+		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);  // Changed from vbo to vao
+		graphics.DrawNonIndexed(floor.mesh.VertexCount());
+
+		// =====================
+		// PASS 2: Scene with shadows
+		// =====================
 		graphics.BindFrameBuffer(0);
 		graphics.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
 		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
 		graphics.Clear(true, true, false);
-		graphics.SetDepthTest(true);
 
-		cubeObject.model->material.Apply();
-		cubeObject.model->material.SetUniform("viewMatrix", view);
-		cubeObject.model->material.SetUniform("projectionMatrix", projection);
-		cubeObject.model->material.SetUniform("hasDiffuseTexture", 0);
-		cubeObject.model->material.SetUniform("light.position", lightPosition);
-		cubeObject.model->material.SetUniform("light.color", lightColor);
-		cubeObject.model->material.SetUniform("light.intensity", lightIntensity);
-		cubeObject.model->material.SetUniform("viewPos", camera.position);
-		cubeObject.model->material.SetUniform("hasDiffuseTexture", 1);  // enable texture
+		// Set shadow map on both materials
+		cube.material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
+		floor.material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
+
+		// Render cubes
+		cube.material.Apply();
+		cube.material.SetUniform("viewMatrix", view);
+		cube.material.SetUniform("projectionMatrix", projection);
+		cube.material.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
+		cube.material.SetUniform("light.position", lightPosition);
+		cube.material.SetUniform("light.color", lightColor);
+		cube.material.SetUniform("light.intensity", lightIntensity);
+		cube.material.SetUniform("viewPos", camera.position);
 
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, *cubeObject.model->mesh.vao);
-
 		for (int i = 0; i < 10; i++)
 		{
 			glm::mat4 model = cubeTransforms[i].GetMatrix();
 			glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
 
-			cubeObject.model->material.SetUniform("modelMatrix", model);
-			cubeObject.model->material.SetUniform("normalMatrix", normalMatrix);
+			cube.material.SetUniform("modelMatrix", model);
+			cube.material.SetUniform("normalMatrix", normalMatrix);
 
 			graphics.DrawNonIndexed(cubeObject.model->mesh.VertexCount());
 		}
 
+		// Render floor
 		floor.material.Apply();
 		floor.material.SetUniform("viewMatrix", view);
 		floor.material.SetUniform("projectionMatrix", projection);
-		floor.material.SetUniform("hasDiffuseTexture", 1);  // enable texture
+		floor.material.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
 		floor.material.SetUniform("light.position", lightPosition);
 		floor.material.SetUniform("light.color", lightColor);
 		floor.material.SetUniform("light.intensity", lightIntensity);
 		floor.material.SetUniform("viewPos", camera.position);
 
-		glm::mat4 floorModel = floorTransform.GetMatrix();
 		glm::mat3 floorNormalMatrix = glm::transpose(glm::inverse(glm::mat3(floorModel)));
-
 		floor.material.SetUniform("modelMatrix", floorModel);
 		floor.material.SetUniform("normalMatrix", floorNormalMatrix);
 
 		graphics.BindResource(ResourceType::VERTEX_BUFFER, *floor.mesh.vao);
 		graphics.DrawNonIndexed(floor.mesh.VertexCount());
 
-		// model
-		//mannequinModel.material.Apply();
-
-		//mannequinModel.material.SetUniform("modelMatrix", model);
-		//mannequinModel.material.SetUniform("viewMatrix", view);
-		//mannequinModel.material.SetUniform("projectionMatrix", projection);
-
-		//glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
-		//mannequinModel.material.SetUniform("normalMatrix", normalMatrix);
-
-		//mannequinModel.material.SetUniform("light.position", lightPosition);
-		//mannequinModel.material.SetUniform("light.color", lightColor);
-		//mannequinModel.material.SetUniform("light.intensity", lightIntensity);
-
-		//mannequinModel.material.SetUniform("viewPos", camera.position);
-
-		//graphics.BindResource(ResourceType::VERTEX_BUFFER, *mannequinModel.mesh.vao);
-		//graphics.DrawNonIndexed(mannequinModel.mesh.VertexCount());
-
-		// skybox
+		// =====================
+		// Skybox
+		// =====================
 		graphics.SetDepthWrite(false);
 		graphics.SetDepthFunc(DepthFunc::LessEqual);
 
-		glUseProgram(skyboxShader);
 		graphics.BindResource(ResourceType::SHADER_PROGRAM, skyboxShader);
 
 		glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
-
 		skyboxShader.SetUniform(skyboxShader.GetUniform("projectionMatrix"), projection);
 		skyboxShader.SetUniform(skyboxShader.GetUniform("viewMatrix"), skyboxView);
 		skyboxShader.SetUniform(skyboxShader.GetUniform("skybox"), 0);
@@ -317,25 +342,6 @@ int main(int argc, char* argv[])
 
 		graphics.SetDepthWrite(true);
 		graphics.SetDepthFunc(DepthFunc::Less);
-
-		// =====================
-		// PASS 2: Post-process fullscreen quad
-		// =====================
-		//graphics.BindFrameBuffer(0);
-		//graphics.Clear(true, false, false);
-		//graphics.SetDepthTest(false);
-
-		//glUseProgram(postProcessShader);
-
-		//// Bind the scene color texture to slot 0
-		//glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(GL_TEXTURE_2D, (unsigned int)sceneFBO.GetTexture());
-		//postProcessShader.SetUniform(postProcessShader.GetUniform("screenTexture"), 0);
-
-		//graphics.BindResource(ResourceType::VERTEX_BUFFER, quadVAO);
-		//graphics.DrawNonIndexed(6);
-
-		//graphics.SetDepthTest(true);
 
 		window.SwapBuffers();
 	}

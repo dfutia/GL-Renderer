@@ -113,6 +113,13 @@ void Texture::SetBorderColor()
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 }
 
+void Texture::SetBorderColor(float r, float g, float b, float a)
+{
+	glBindTexture(GL_TEXTURE_2D, id);
+	float borderColor[] = { r, g, b, a };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+}
+
 void Texture::GenerateMipmaps()
 {
 	glBindTexture(GL_TEXTURE_2D, id);

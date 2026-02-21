@@ -53,6 +53,11 @@ void GraphicsDevice::SetCullFace(bool enabled)
         glDisable(GL_CULL_FACE);
 }
 
+void GraphicsDevice::SetCullFaceMode(bool front)
+{
+    glCullFace(front ? GL_FRONT : GL_BACK);
+}
+
 void GraphicsDevice::SetDepthWrite(bool enabled)
 {
     glDepthMask(enabled ? GL_TRUE : GL_FALSE);

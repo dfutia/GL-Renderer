@@ -3,6 +3,7 @@
 in vec3 vWorldPos;
 in vec3 vNormal;
 in vec2 vTexCoord;
+in vec4 vLightSpacePos;
 
 struct Material
 {
@@ -38,14 +39,11 @@ void main()
     vec3 viewDir = normalize(viewPos - vWorldPos);
     vec3 reflectDir = reflect(-lightDir, normal);
     
-    // Ambient
     vec3 ambient = material.ambient * baseColor;
     
-    // Diffuse
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * light.color * baseColor;
     
-    // Specular
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
     vec3 specular = spec * light.color * material.specular;
     

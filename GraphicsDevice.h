@@ -27,13 +27,16 @@ public:
 	void SetDepthTest(bool enabled);
 	void SetBlending(bool enabled);
 	void SetCullFace(bool enabled);
+	void SetCullFaceMode(bool front);
 	void SetDepthWrite(bool enabled);
 	void SetDepthFunc(DepthFunc func);
 
+	// Resource binding
 	void BindResource(ResourceType type, unsigned int id);
 	void BindCubemap(unsigned int id, int slot = 0);
 	void BindFrameBuffer(int fbo = 0);
 
+	// Drawing
 	void DrawIndexed(unsigned int numTriangle);
 	void DrawInstanced(unsigned int numTriangle, unsigned int numInstance);
 	void DrawNonIndexed(unsigned int numVertices);

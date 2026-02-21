@@ -176,15 +176,18 @@ Uniform Material::GetCachedUniform(const std::string& name) const
 
 void Material::ApplyTextures() const
 {
-	int textureUnit = 0;
 	for (const auto& pair : textures)
 	{
+		int textureUnit = pair.first;  // Use the slot enum value directly
 		glActiveTexture(GL_TEXTURE0 + textureUnit);
 		glBindTexture(GL_TEXTURE_2D, pair.second);
-		Uniform uniform = program.GetUniform("texture" + std::to_string(pair.first));
+		Uniform uniform = program.GetUniform("texture" + std::to_string(textureUnit));
 		program.SetUniform(uniform, textureUnit);
-		textureUnit++;
 	}
+
+	bool hasDiffuse = HasTexture(Diffuse);
+	Uniform hasDiffuseUniform = program.GetUniform("hasDiffuseTexture");
+	program.SetUniform(hasDiffuseUniform, hasDiffuse ? 1 : 0);
 }
 
 void Material::ApplyProperties() const
@@ -241,6 +244,20 @@ Material Material::CreateUnlitMaterial()
 	return material;
 }
 
+Material Material::CreatePhongShadowMaterial()
+{
+	Material material(GetStaticShadowVertexShader(), GetPhongShadowFragmentShader());
+
+	MaterialProperties props;
+	props.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
+	props.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
+	props.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+	props.shininess = 32.0f;
+	material.SetProperties(props);
+
+	return material;
+}
+
 std::string Material::GetStaticVertexShader()
 {
 	return ReadTextFile((GetMediaPath() / "Shaders/static.vert"));
@@ -250,6 +267,13 @@ std::string Material::GetSkinnedVertexShader()
 {
 	return ReadTextFile((GetMediaPath() / "Shaders/skinned.vert"));
 }
+
+std::string Material::GetStaticShadowVertexShader()
+{
+	return ReadTextFile((GetMediaPath() / "Shaders/static_shadow.vert"));
+}
+
+
 
 std::string Material::GetPhongFragmentShader()
 {
@@ -264,4 +288,9 @@ std::string Material::GetPBRFragmentShader()
 std::string Material::GetUnlitFragmentShader()
 {
 	return ReadTextFile((GetMediaPath() / "Shaders/unlit.frag"));
+}
+
+std::string Material::GetPhongShadowFragmentShader()
+{
+	return ReadTextFile((GetMediaPath() / "Shaders/phong_shadow.frag"));
 }

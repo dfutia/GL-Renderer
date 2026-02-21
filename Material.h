@@ -42,7 +42,8 @@ public:
 		Roughness = 7,
 		AO = 8,
 		Combined_MetallicRoughnessAO = 9, // R=AO, G=Roughness, B=Metallic
-		COUNT = 10
+		Shadow = 10,
+		COUNT = 11
 	};
 
 	Material();
@@ -91,6 +92,7 @@ public:
 	static Material CreatePhongMaterial();
 	static Material CreatePBRMaterial();
 	static Material CreateUnlitMaterial();
+	static Material CreatePhongShadowMaterial();
 private:
 	ShaderProgram program;
 	MaterialProperties properties;
@@ -103,9 +105,12 @@ private:
 
 	static std::string GetStaticVertexShader();
 	static std::string GetSkinnedVertexShader();
+	static std::string GetStaticShadowVertexShader();
+
 	static std::string GetPhongFragmentShader();
 	static std::string GetPBRFragmentShader();
 	static std::string GetUnlitFragmentShader();
+	static std::string GetPhongShadowFragmentShader();
 };
 
 class MaterialLibrary

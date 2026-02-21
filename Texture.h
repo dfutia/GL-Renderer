@@ -62,6 +62,7 @@ public:
 	void SetFilters(FilterMode minFilter, FilterMode magFilter);
 
 	void SetBorderColor();
+	void SetBorderColor(float r, float g, float b, float a);
 
 	void GenerateMipmaps();
 private:
@@ -73,8 +74,8 @@ private:
 	int channels = 0;
 };
 
-Texture LoadTexture(const std::string& filepath);
-Texture LoadTexture(const unsigned char* data, int byteLength);
+Texture LoadTexture(const std::string& filepath); // from file
+Texture LoadTexture(const unsigned char* data, int byteLength); // from memory
 Texture LoadCubemap(const std::array<std::string, 6>& faces);
 
 #endif 

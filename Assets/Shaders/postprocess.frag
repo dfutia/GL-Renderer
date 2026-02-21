@@ -8,6 +8,6 @@ out vec4 fragColor;
 
 void main()
 {
-    vec3 color = texture(uScreenTexture, vTexCoord).rgb;
-    fragColor = vec4(color, 1.0);
+    float depth = texture(uScreenTexture, vTexCoord).r;
+    fragColor = vec4(vec3(depth), 1.0); 
 }
