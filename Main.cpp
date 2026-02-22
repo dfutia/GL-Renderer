@@ -1,4 +1,7 @@
 ﻿#include <SDL.h>
+#include <imgui.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_opengl3.h>
 
 #include "PCH.h"
 
@@ -109,6 +112,12 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui_ImplSDL2_InitForOpenGL(window.GetSDLWindow(), window.GetGLContext());
+	ImGui_ImplOpenGL3_Init("#version 330");
+	ImGui::StyleColorsDark();
+
 	GraphicsDevice graphics;
 
 	PhysicsWorld physics;
@@ -138,6 +147,7 @@ int main(int argc, char* argv[])
 		});
 
 	Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
+
 	Material cubeMaterial = Material::CreateDefault();
 	cubeMaterial.SetTexture(Material::Diffuse, containerTexture);
 
@@ -198,6 +208,7 @@ int main(int argc, char* argv[])
 	light.color = glm::vec3(1.0f);
 	light.intensity = 1.0f;
 
+	bool mouseCaptured = true;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	Uint64 lastTime = SDL_GetPerformanceCounter();
 	SDL_Event event;
@@ -210,26 +221,32 @@ int main(int argc, char* argv[])
 
 		while (SDL_PollEvent(&event))
 		{
+			ImGui_ImplSDL2_ProcessEvent(&event);
+
 			if (event.type == SDL_QUIT)
 			{
 				running = false;
 			}
 			else if (event.type == SDL_MOUSEMOTION)
 			{
-				camera.ProcessMouseMovement((float)event.motion.xrel, -(float)event.motion.yrel);
+				if (mouseCaptured)
+					camera.ProcessMouseMovement((float)event.motion.xrel, -(float)event.motion.yrel);
 			}
 			else if (event.type == SDL_KEYDOWN)
 			{
-				// Press Escape to release mouse / quit
 				if (event.key.keysym.sym == SDLK_ESCAPE)
 				{
-					running = false;
+					mouseCaptured = !mouseCaptured;
+					SDL_SetRelativeMouseMode(mouseCaptured ? SDL_TRUE : SDL_FALSE);
 				}
 			}
 		}
 
-		const Uint8* keystate = SDL_GetKeyboardState(NULL);
-		camera.ProcessKeyboard(keystate, deltaTime);
+		if (mouseCaptured)
+		{
+			const Uint8* keystate = SDL_GetKeyboardState(NULL);
+			camera.ProcessKeyboard(keystate, deltaTime);
+		}
 
 		physics.Update(deltaTime);
 
@@ -314,8 +331,118 @@ int main(int argc, char* argv[])
 		// =====================
 		graphics.DrawSkybox(skybox, view, projection);
 
+		// =====================
+		// Imgui
+		// =====================
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
+		// Actor Hierarchy
+		ImGui::Begin("Actors");
+		static int selectedActor = -1;
+		for (int i = 0; i < actors.size(); i++)
+		{
+			std::string label = "Actor " + std::to_string(i);
+			if (ImGui::Selectable(label.c_str(), selectedActor == i))
+				selectedActor = i;
+		}
+		ImGui::End();
+
+		// Inspector
+		ImGui::Begin("Inspector");
+		if (selectedActor >= 0 && selectedActor < actors.size())
+		{
+			Actor* actor = actors[selectedActor].get();
+
+			if (auto* transform = actor->GetComponent<TransformComponent>())
+			{
+				if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					ImGui::DragFloat3("Position", &transform->position.x, 0.1f);
+					ImGui::DragFloat3("Rotation", &transform->rotation.x, 0.5f);
+					ImGui::DragFloat3("Scale", &transform->scale.x, 0.01f);
+				}
+			}
+
+			if (auto* model = actor->GetComponent<ModelComponent>())
+			{
+				if (ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					ImGui::Text("Vertices: %d", model->mesh.VertexCount());
+					ImGui::Separator();
+					ImGui::ColorEdit3("Ambient", &model->material.properties.ambient.x);
+					ImGui::ColorEdit3("Diffuse", &model->material.properties.diffuse.x);
+					ImGui::ColorEdit3("Specular", &model->material.properties.specular.x);
+					ImGui::DragFloat("Shininess", &model->material.properties.shininess, 1.0f, 1.0f, 256.0f);
+				}
+			}
+
+			if (auto* skinned = actor->GetComponent<SkinnedModelComponent>())
+			{
+				if (ImGui::CollapsingHeader("Skinned Model", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					ImGui::Text("Vertices: %d", skinned->mesh.VertexCount());
+					ImGui::Text("Bones: %d", (int)skinned->mesh.skeleton.bones.size());
+					ImGui::Text("Animations: %d", (int)skinned->mesh.animations.size());
+				}
+			}
+
+			if (actor->GetComponent<PhysicsComponent>())
+			{
+				if (ImGui::CollapsingHeader("Physics", ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					ImGui::Text("Has Rigid Body");
+				}
+			}
+		}
+		else
+		{
+			ImGui::Text("No actor selected");
+		}
+		ImGui::End();
+
+		// Light
+		ImGui::Begin("Light");
+		ImGui::DragFloat3("Direction", &light.direction.x, 0.01f);
+		if (ImGui::Button("Normalize"))
+			light.direction = glm::normalize(light.direction);
+		ImGui::ColorEdit3("Color", &light.color.x);
+		ImGui::DragFloat("Intensity", &light.intensity, 0.01f, 0.0f, 10.0f);
+		ImGui::End();
+
+		// Camera
+		ImGui::Begin("Camera");
+		ImGui::DragFloat3("Position", &camera.position.x, 0.1f);
+		ImGui::Text("Yaw: %.2f", camera.yaw);
+		ImGui::Text("Pitch: %.2f", camera.pitch);
+		ImGui::DragFloat("Move Speed", &camera.moveSpeed, 1.0f, 1.0f, 1000.0f);
+		ImGui::DragFloat("Sensitivity", &camera.mouseSensitivity, 0.01f, 0.01f, 1.0f);
+		ImGui::End();
+
+		// Performance
+		ImGui::Begin("Performance");
+		ImGui::Text("FPS: %.1f", 1.0f / deltaTime);
+		ImGui::Text("Frame Time: %.3f ms", deltaTime * 1000.0f);
+		ImGui::Text("Actors: %d", (int)actors.size());
+		ImGui::End();
+
+		// Shadow Map
+		ImGui::Begin("Shadow Map");
+		ImGui::DragFloat("Near Plane", &nearPlane, 0.1f, 0.1f, 100.0f);
+		ImGui::DragFloat("Far Plane", &farPlane, 1.0f, 100.0f, 5000.0f);
+		ImGui::DragFloat("Ortho Size", &orthoSize, 1.0f, 10.0f, 2000.0f);
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		window.SwapBuffers();
 	}
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
 
 	return 0;
 }

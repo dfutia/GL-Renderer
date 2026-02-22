@@ -86,6 +86,7 @@ void GraphicsDevice::SetLight(const DirectionalLight& light)
     SetUniform("light.direction", light.direction);
     SetUniform("light.color", light.color);
     SetUniform("light.intensity", light.intensity);
+    SetUniform("lightDirection", light.direction);
 }
 
 
@@ -151,6 +152,7 @@ void GraphicsDevice::BindMaterial(const Material& material)
     }
 
     SetUniform("hasDiffuseTexture", material.HasTexture(Material::Diffuse) ? 1 : 0);
+    SetUniform("hasNormalMap", material.HasTexture(Material::Normal) ? 1 : 0);
 
     // Bind properties
     SetUniform("material.ambient", material.properties.ambient);
