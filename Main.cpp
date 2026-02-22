@@ -32,6 +32,8 @@
 
 const unsigned int SHADOW_WIDTH = 2048;
 const unsigned int SHADOW_HEIGHT = 2048;
+//const unsigned int SHADOW_WIDTH = 4096;
+//const unsigned int SHADOW_HEIGHT = 4096;
 
 float cubeVerticesWithNormalsAndUVs[] = {
 	// positions          // normals           // texcoords
@@ -77,15 +79,6 @@ float cubeVerticesWithNormalsAndUVs[] = {
 	  1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
 	 -1.0f,  1.0f, -1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
 	 -1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-};
-
-float skyboxVertices[] = {
-	-1,  1, -1,  -1, -1, -1,   1, -1, -1,   1, -1, -1,   1,  1, -1,  -1,  1, -1,
-	-1, -1,  1,  -1, -1, -1,  -1,  1, -1,  -1,  1, -1,  -1,  1,  1,  -1, -1,  1,
-	 1, -1, -1,   1, -1,  1,   1,  1,  1,   1,  1,  1,   1,  1, -1,   1, -1, -1,
-	-1, -1,  1,  -1,  1,  1,   1,  1,  1,   1,  1,  1,   1, -1,  1,  -1, -1,  1,
-	-1,  1, -1,   1,  1, -1,   1,  1,  1,   1,  1,  1,  -1,  1,  1,  -1,  1, -1,
-	-1, -1, -1,  -1, -1,  1,   1, -1, -1,   1, -1, -1,  -1, -1,  1,   1, -1,  1
 };
 
 float quadVertices[] = {
@@ -264,14 +257,16 @@ int main(int argc, char* argv[])
 		// =====================
 		// PASS 1: Shadow map
 		// =====================
-		float nearPlane = 1.0f;
-		float farPlane = 1500.0f;
-		float orthoSize = 600.0f;
-
-		glm::mat4 lightProjection = glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
-		glm::vec3 lightPos = -light.direction * 500.0f;
+		glm::mat4 lightProjection = glm::ortho(
+			-light.shadowOrthoSize, light.shadowOrthoSize,
+			-light.shadowOrthoSize, light.shadowOrthoSize,
+			light.shadowNearPlane, light.shadowFarPlane
+		);
+		glm::vec3 lightPos = -light.direction * light.shadowDistance;
 		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+		light.lightSpaceMatrix = lightProjection * lightView;
+		light.shadowMap = &shadowMap.GetDepthTexture();
 
 		graphics.SetViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		graphics.BindFrameBuffer(shadowMap);
@@ -279,7 +274,7 @@ int main(int argc, char* argv[])
 		graphics.SetDepthTest(true);
 
 		graphics.BindShader(depthShader);
-		graphics.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
+		graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
 
 		for (auto& actor : actors)
 		{
@@ -305,7 +300,6 @@ int main(int argc, char* argv[])
 		graphics.BindShader(phongShader);
 		graphics.SetUniform("viewMatrix", view);
 		graphics.SetUniform("projectionMatrix", projection);
-		graphics.SetUniform("lightSpaceMatrix", lightSpaceMatrix);
 		graphics.SetUniform("viewPos", camera.position);
 
 		graphics.SetLight(light);
@@ -318,7 +312,6 @@ int main(int argc, char* argv[])
 			if (!transform || !model)
 				continue;
 
-			model->material.SetTexture(Material::Shadow, shadowMap.GetDepthTexture());
 			graphics.BindMaterial(model->material);
 			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
 			graphics.SetUniform("modelMatrix", transform->GetMatrix());
@@ -409,6 +402,14 @@ int main(int argc, char* argv[])
 			light.direction = glm::normalize(light.direction);
 		ImGui::ColorEdit3("Color", &light.color.x);
 		ImGui::DragFloat("Intensity", &light.intensity, 0.01f, 0.0f, 10.0f);
+
+		if (ImGui::CollapsingHeader("Shadows"))
+		{
+			ImGui::DragFloat("Near Plane", &light.shadowNearPlane, 0.1f, 0.1f, 100.0f);
+			ImGui::DragFloat("Far Plane", &light.shadowFarPlane, 1.0f, 100.0f, 5000.0f);
+			ImGui::DragFloat("Ortho Size", &light.shadowOrthoSize, 1.0f, 10.0f, 2000.0f);
+			ImGui::DragFloat("Distance", &light.shadowDistance, 1.0f, 100.0f, 2000.0f);
+		}
 		ImGui::End();
 
 		// Camera
@@ -425,13 +426,6 @@ int main(int argc, char* argv[])
 		ImGui::Text("FPS: %.1f", 1.0f / deltaTime);
 		ImGui::Text("Frame Time: %.3f ms", deltaTime * 1000.0f);
 		ImGui::Text("Actors: %d", (int)actors.size());
-		ImGui::End();
-
-		// Shadow Map
-		ImGui::Begin("Shadow Map");
-		ImGui::DragFloat("Near Plane", &nearPlane, 0.1f, 0.1f, 100.0f);
-		ImGui::DragFloat("Far Plane", &farPlane, 1.0f, 100.0f, 5000.0f);
-		ImGui::DragFloat("Ortho Size", &orthoSize, 1.0f, 10.0f, 2000.0f);
 		ImGui::End();
 
 		ImGui::Render();

@@ -87,8 +87,20 @@ void GraphicsDevice::SetLight(const DirectionalLight& light)
     SetUniform("light.color", light.color);
     SetUniform("light.intensity", light.intensity);
     SetUniform("lightDirection", light.direction);
-}
+    SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
 
+    if (light.shadowMap)
+    {
+        glActiveTexture(GL_TEXTURE10);
+        glBindTexture(GL_TEXTURE_2D, *light.shadowMap);
+        SetUniform("shadowMap", 10);
+        SetUniform("hasShadowMap", 1);
+    }
+    else
+    {
+        SetUniform("hasShadowMap", 0);
+    }
+}
 
 void GraphicsDevice::BindShader(const ShaderProgram& shader)
 {

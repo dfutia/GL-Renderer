@@ -41,8 +41,7 @@ public:
 		Roughness = 7,
 		AO = 8,
 		Combined_MetallicRoughnessAO = 9, // R=AO, G=Roughness, B=Metallic
-		Shadow = 10,
-		COUNT = 11
+		COUNT = 10
 	};
 
 	Material() = default;

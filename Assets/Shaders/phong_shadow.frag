@@ -14,10 +14,11 @@ out vec4 FragColor;
 
 uniform sampler2D texture0;  // diffuse
 uniform sampler2D texture2;  // normal map
-uniform sampler2D texture10; // shadow map
+uniform sampler2D shadowMap;
 
 uniform int hasDiffuseTexture;
 uniform int hasNormalMap;
+uniform int hasShadowMap;
 
 struct Material {
     vec3 ambient;
@@ -37,13 +38,16 @@ uniform Light light;
 
 float ShadowCalculation(vec4 fragPosLightSpace)
 {
+    if (hasShadowMap == 0)
+        return 0.0;
+        
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
     
     if (projCoords.z > 1.0)
         return 0.0;
     
-    float closestDepth = texture(texture10, projCoords.xy).r;
+    float closestDepth = texture(shadowMap, projCoords.xy).r;
     float currentDepth = projCoords.z;
     float bias = 0.005;
     
