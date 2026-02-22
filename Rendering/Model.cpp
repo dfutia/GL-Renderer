@@ -117,7 +117,7 @@ Model LoadModel(const std::string& filepath)
 
     const aiScene* scene = importer.ReadFileFromMemory(
         fileData.data(), fileData.size(),
-        aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_FlipUVs,
+        aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace,
         "fbx");
 
     if (!scene || !scene->mNumMeshes)
@@ -137,10 +137,18 @@ Model LoadModel(const std::string& filepath)
             unsigned int idx = face.mIndices[j];
             Vertex vertex;
             vertex.position = glm::vec3(aiM->mVertices[idx].x, aiM->mVertices[idx].y, aiM->mVertices[idx].z);
+
             if (aiM->mNormals)
                 vertex.normal = glm::vec3(aiM->mNormals[idx].x, aiM->mNormals[idx].y, aiM->mNormals[idx].z);
+
             if (aiM->mTextureCoords[0])
                 vertex.texCoords = glm::vec2(aiM->mTextureCoords[0][idx].x, aiM->mTextureCoords[0][idx].y);
+
+            if (aiM->mTangents)
+                vertex.tangent = glm::vec3(aiM->mTangents[idx].x, aiM->mTangents[idx].y, aiM->mTangents[idx].z);
+            else
+                vertex.tangent = glm::vec3(1.0f, 0.0f, 0.0f);
+
             vertices.push_back(vertex);
         }
     }
@@ -152,6 +160,7 @@ Model LoadModel(const std::string& filepath)
         buffer.Vec3(v.position);
         buffer.Vec3(v.normal);
         buffer.Vec2(v.texCoords);
+        buffer.Vec3(v.tangent);
     }
 
     // --- Build VAO ---
@@ -160,10 +169,11 @@ Model LoadModel(const std::string& filepath)
     mesh->vbo = new VertexBuffer(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
     mesh->vao = new VertexArray();
 
-    unsigned int stride = sizeof(float) * 8;
+    unsigned int stride = sizeof(float) * 11; // 3 + 3 + 2 + 3
     mesh->vao->BindAttribute(0, *mesh->vbo, GL_FLOAT, 3, stride, 0);
     mesh->vao->BindAttribute(1, *mesh->vbo, GL_FLOAT, 3, stride, sizeof(float) * 3);
     mesh->vao->BindAttribute(2, *mesh->vbo, GL_FLOAT, 2, stride, sizeof(float) * 6);
+    mesh->vao->BindAttribute(3, *mesh->vbo, GL_FLOAT, 3, stride, sizeof(float) * 8);
 
     // --- Build material ---
     Material material = Material::CreateDefault();
