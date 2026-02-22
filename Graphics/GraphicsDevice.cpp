@@ -4,6 +4,7 @@
 #include "Rendering/Material.h"
 #include "Rendering/Skybox.h"
 #include "Rendering/Light.h"
+#include "Rendering/ScreenQuad.h"
 
 GraphicsDevice::GraphicsDevice()
 {
@@ -235,4 +236,20 @@ void GraphicsDevice::DrawSkybox(const Skybox& skybox, const glm::mat4& view, con
 
     SetDepthWrite(true);
     SetDepthFunc(DepthFunc::Less);
+}
+
+void GraphicsDevice::DrawScreenQuad(const ScreenQuad& quad, const ShaderProgram& shader, const Texture& texture)
+{
+    glDisable(GL_DEPTH_TEST);
+
+    glUseProgram(shader);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    shader.SetUniform(shader.GetUniform("uScreenTexture"), 0);
+
+    glBindVertexArray(quad.vao);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glEnable(GL_DEPTH_TEST);
 }

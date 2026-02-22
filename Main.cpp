@@ -247,12 +247,7 @@ int main(int argc, char* argv[])
 		glm::mat4 view = camera.GetViewMatrix();
 
 		// projection: the lens of the camera (perspective/FOV or orthographic, near/far clip planes)
-		glm::mat4 projection = glm::perspective(
-			glm::radians(45.0f),
-			window.GetAspectRatio(),
-			0.1f,
-			10000.0f
-		);
+		glm::mat4 projection = camera.GetProjectionMatrix(window.GetAspectRatio());
 
 		// =====================
 		// PASS 1: Shadow map
@@ -419,6 +414,10 @@ int main(int argc, char* argv[])
 		ImGui::Text("Pitch: %.2f", camera.pitch);
 		ImGui::DragFloat("Move Speed", &camera.moveSpeed, 1.0f, 1.0f, 1000.0f);
 		ImGui::DragFloat("Sensitivity", &camera.mouseSensitivity, 0.01f, 0.01f, 1.0f);
+		ImGui::Separator();
+		ImGui::DragFloat("FOV", &camera.fov, 0.5f, 1.0f, 120.0f);
+		ImGui::DragFloat("Near Plane", &camera.nearPlane, 0.01f, 0.01f, 10.0f);
+		ImGui::DragFloat("Far Plane", &camera.farPlane, 10.0f, 100.0f, 50000.0f);
 		ImGui::End();
 
 		// Performance
