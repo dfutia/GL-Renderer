@@ -1,9 +1,13 @@
-﻿#include <SDL.h>
+﻿#include <variant>
+
+#include <SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
 
 #include "PCH.h"
+
+#include "Game/Game.h"
 
 #include "Platform/Window.h"
 #include "Platform/File.h"
@@ -15,6 +19,7 @@
 #include "Actors/PhysicsComponent.h"
 #include "Actors/ModelComponent.h"
 #include "Actors/SkinnedModelComponent.h"
+#include "Actors/RenderComponent.h"
 
 #include "Rendering/Skybox.h"
 #include "Rendering/Model.h"
@@ -22,6 +27,7 @@
 #include "Rendering/Mesh.h"
 #include "Rendering/Material.h"
 #include "Rendering/Light.h"
+#include "Rendering/ShaderLibrary.h"
 
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/Texture.h"
@@ -92,6 +98,55 @@ float quadVertices[] = {
 	 1.0f,  1.0f,  1.0f, 1.0f
 };
 
+void DrawPropertyInspector(ActorComponent* component)
+{
+	PropertyRegistry registry;
+	component->RegisterProperties(registry);
+
+	for (const auto& prop : registry.GetProperties())
+	{
+		switch (prop.type)
+		{
+		case PropertyType::Int:
+			ImGui::DragInt(prop.name.c_str(), (int*)prop.data, (int)prop.speed, (int)prop.min, (int)prop.max);
+			break;
+		case PropertyType::Float:
+			ImGui::DragFloat(prop.name.c_str(), (float*)prop.data, prop.speed, prop.min, prop.max);
+			break;
+		case PropertyType::Bool:
+			ImGui::Checkbox(prop.name.c_str(), (bool*)prop.data);
+			break;
+		case PropertyType::Vec2:
+			ImGui::DragFloat2(prop.name.c_str(), &((glm::vec2*)prop.data)->x, prop.speed, prop.min, prop.max);
+			break;
+		case PropertyType::Vec3:
+			ImGui::DragFloat3(prop.name.c_str(), &((glm::vec3*)prop.data)->x, prop.speed, prop.min, prop.max);
+			break;
+		case PropertyType::Vec4:
+			ImGui::DragFloat4(prop.name.c_str(), &((glm::vec4*)prop.data)->x, prop.speed, prop.min, prop.max);
+			break;
+		case PropertyType::Color3:
+			ImGui::ColorEdit3(prop.name.c_str(), &((glm::vec3*)prop.data)->x);
+			break;
+		case PropertyType::Color4:
+			ImGui::ColorEdit4(prop.name.c_str(), &((glm::vec4*)prop.data)->x);
+			break;
+		case PropertyType::String:
+		{
+			std::string* str = (std::string*)prop.data;
+			char buffer[256];
+			strncpy_s(buffer, str->c_str(), sizeof(buffer));
+			if (ImGui::InputText(prop.name.c_str(), buffer, sizeof(buffer)))
+				*str = buffer;
+		}
+		break;
+		}
+	}
+
+	// Let component add custom UI
+	component->OnInspectorGUI();
+}
+
 int main(int argc, char* argv[])
 {
 	Window::Config windowConfig;
@@ -112,23 +167,23 @@ int main(int argc, char* argv[])
 	ImGui::StyleColorsDark();
 
 	GraphicsDevice graphics;
-
 	PhysicsWorld physics;
+	ShaderLibrary shaders;
 
 	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
 	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
 
 	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
 
-	ShaderProgram phongShader(
-		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/static.vert")),
-		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/phong_shadow.frag"))
-	);
+	shaders.Load("phong_shadow", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
+	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
+	shaders.Load("unlit", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/unlit.frag");
 
-	ShaderProgram depthShader(
-		Shader(Shader::Vertex, ReadTextFile(GetMediaPath() / "Shaders/depth.vert")),
-		Shader(Shader::Fragment, ReadTextFile(GetMediaPath() / "Shaders/depth.frag"))
-	);
+	// TODO: move this to game, but ShaderLibray needs to be global or passed to game
+	shaders.Load("earth", GetMediaPath() / "Shaders/earth.vert", GetMediaPath() / "Shaders/earth.frag");
+	shaders.Load("border", GetMediaPath() / "Shaders/border.vert", GetMediaPath() / "Shaders/border.frag");
+
+	std::vector<std::unique_ptr<Actor>> actors;
 
 	Skybox skybox = LoadSkybox({
 	(GetMediaPath() / "Skybox/right.jpg").string(),
@@ -139,54 +194,53 @@ int main(int argc, char* argv[])
 	(GetMediaPath() / "Skybox/back.jpg").string()
 		});
 
-	Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
+	//Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
 
-	Material cubeMaterial = Material::CreateDefault();
-	cubeMaterial.SetTexture(Material::Diffuse, containerTexture);
+	//Material cubeMaterial = Material::CreateDefault();
+	//cubeMaterial.SetTexture(Material::Diffuse, containerTexture);
 
-	Material floorMaterial = Material::CreateDefault();
-	floorMaterial.SetTexture(Material::Diffuse, woodTexture);
+	//Material floorMaterial = Material::CreateDefault();
+	//floorMaterial.SetTexture(Material::Diffuse, woodTexture);
 
-	std::vector<std::unique_ptr<Actor>> actors;
+	//for (int i = 0; i < 10; i++)
+	//{
+	//	auto cube = std::make_unique<Actor>();
 
-	for (int i = 0; i < 10; i++)
-	{
-		auto cube = std::make_unique<Actor>();
+	//	auto* transform = cube->AddComponent<TransformComponent>();
+	//	transform->position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f);
+	//	transform->rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);
+	//	transform->scale = glm::vec3(5.0f);
 
-		auto* transform = cube->AddComponent<TransformComponent>();
-		transform->position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f);
-		transform->rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);
-		transform->scale = glm::vec3(5.0f);
+	//	cube->AddComponent<ModelComponent>(cubeMesh, cubeMaterial);
 
-		cube->AddComponent<ModelComponent>(cubeMesh, cubeMaterial);
+	//	auto* phys = cube->AddComponent<PhysicsComponent>(physics);
+	//	phys->SetMass(1.0f);
+	//	phys->SetBoxShape(glm::vec3(5.0f, 5.0f, 5.0f));
 
-		auto* phys = cube->AddComponent<PhysicsComponent>(physics);
-		phys->SetMass(1.0f);
-		phys->SetBoxShape(glm::vec3(5.0f, 5.0f, 5.0f));
+	//	actors.push_back(std::move(cube));
+	//}
 
-		actors.push_back(std::move(cube));
-	}
+	//auto floor = std::make_unique<Actor>();
 
-	auto floor = std::make_unique<Actor>();
+	//auto* floorTransform = floor->AddComponent<TransformComponent>();
+	//floorTransform->position = glm::vec3(0.0f, -50.0f, 0.0f);
+	//floorTransform->scale = glm::vec3(500.0f, 1.0f, 500.0f);
 
-	auto* floorTransform = floor->AddComponent<TransformComponent>();
-	floorTransform->position = glm::vec3(0.0f, -50.0f, 0.0f);
-	floorTransform->scale = glm::vec3(500.0f, 1.0f, 500.0f);
+	//floor->AddComponent<ModelComponent>(cubeMesh, floorMaterial);
 
-	floor->AddComponent<ModelComponent>(cubeMesh, floorMaterial);
+	//auto* floorPhys = floor->AddComponent<PhysicsComponent>(physics);
+	//floorPhys->SetMass(0.0f);
+	//floorPhys->SetBoxShape(glm::vec3(500.0f, 1.0f, 500.0f));
 
-	auto* floorPhys = floor->AddComponent<PhysicsComponent>(physics);
-	floorPhys->SetMass(0.0f);
-	floorPhys->SetBoxShape(glm::vec3(500.0f, 1.0f, 500.0f));
+	//actors.push_back(std::move(floor));
 
-	actors.push_back(std::move(floor));
+	//auto mannequinActor = std::make_unique<Actor>();
 
-	auto mannequinActor = std::make_unique<Actor>();
+	//mannequinActor->AddComponent<TransformComponent>();
+	//mannequinActor->AddComponent<ModelComponent>(mannequin.mesh, mannequin.material);
+	//mannequinActor->AddComponent<RenderComponent>();
 
-	mannequinActor->AddComponent<TransformComponent>();
-	mannequinActor->AddComponent<ModelComponent>(mannequin.mesh, mannequin.material);
-
-	actors.push_back(std::move(mannequinActor));
+	//actors.push_back(std::move(mannequinActor));
 
 	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
 	FrameBuffer shadowMap(SHADOW_WIDTH, SHADOW_HEIGHT, FrameBuffer::DepthOnly, 0, 24);
@@ -201,6 +255,15 @@ int main(int argc, char* argv[])
 	light.color = glm::vec3(1.0f);
 	light.intensity = 1.0f;
 
+	GameMain(actors);
+	for (auto& actor : actors)
+	{
+		if (auto* game = actor->GetComponent<GameManager>())
+		{
+			game->camera = &camera;
+		}
+	}
+
 	bool mouseCaptured = true;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 	Uint64 lastTime = SDL_GetPerformanceCounter();
@@ -211,6 +274,9 @@ int main(int argc, char* argv[])
 		Uint64 currentTime = SDL_GetPerformanceCounter();
 		float deltaTime = (currentTime - lastTime) / (float)SDL_GetPerformanceFrequency();
 		lastTime = currentTime;
+
+		glm::mat4 view = camera.GetViewMatrix();
+		glm::mat4 projection = camera.GetProjectionMatrix(window.GetAspectRatio());
 
 		while (SDL_PollEvent(&event))
 		{
@@ -223,7 +289,36 @@ int main(int argc, char* argv[])
 			else if (event.type == SDL_MOUSEMOTION)
 			{
 				if (mouseCaptured)
+				{
 					camera.ProcessMouseMovement((float)event.motion.xrel, -(float)event.motion.yrel);
+				}
+				else
+				{
+					// Update hover when mouse is free
+					for (auto& actor : actors)
+					{
+						if (auto* game = actor->GetComponent<GameManager>())
+						{
+							game->UpdateHover(
+								event.motion.x, event.motion.y,
+								window.GetWidth(), window.GetHeight(),
+								view, projection, camera.position);
+						}
+					}
+				}
+			}
+			else if (event.type == SDL_MOUSEBUTTONDOWN)
+			{
+				if (!mouseCaptured && event.button.button == SDL_BUTTON_LEFT)
+				{
+					for (auto& actor : actors)
+					{
+						if (auto* game = actor->GetComponent<GameManager>())
+						{
+							game->OnClick();
+						}
+					}
+				}
 			}
 			else if (event.type == SDL_KEYDOWN)
 			{
@@ -241,13 +336,18 @@ int main(int argc, char* argv[])
 			camera.ProcessKeyboard(keystate, deltaTime);
 		}
 
+		for (auto& actor : actors)
+		{
+			actor->Update(deltaTime);
+		}
+
 		physics.Update(deltaTime);
 
 		// view: where the camera is and what it's looking at
-		glm::mat4 view = camera.GetViewMatrix();
+		//glm::mat4 view = camera.GetViewMatrix();
 
 		// projection: the lens of the camera (perspective/FOV or orthographic, near/far clip planes)
-		glm::mat4 projection = camera.GetProjectionMatrix(window.GetAspectRatio());
+		//glm::mat4 projection = camera.GetProjectionMatrix(window.GetAspectRatio());
 
 		// =====================
 		// PASS 1: Shadow map
@@ -268,22 +368,43 @@ int main(int argc, char* argv[])
 		graphics.Clear(false, true, false);
 		graphics.SetDepthTest(true);
 
-		graphics.BindShader(depthShader);
-		graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
+		//graphics.BindShader(depthShader);
+		//graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
 
 		for (auto& actor : actors)
 		{
 			auto* transform = actor->GetComponent<TransformComponent>();
 			auto* model = actor->GetComponent<ModelComponent>();
+			auto* render = actor->GetComponent<RenderComponent>();
 
 			if (!transform || !model)
 				continue;
 
-			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
-			graphics.SetUniform("modelMatrix", transform->GetMatrix());
-			graphics.DrawNonIndexed(model->mesh.VertexCount());
-		}
+			// Skip objects that don't cast shadows
+			if (render && !render->castsShadows)
+				continue;
 
+			// Shadow pass uses depth shader, NOT the object's rendering shader
+			std::string shadowShaderName = (render && !render->shadowShader.empty())
+				? render->shadowShader
+				: "depth";
+			ShaderProgram* depthShader = shaders.Get(shadowShaderName);
+
+			if (!depthShader)
+				continue;
+
+			graphics.BindShader(*depthShader);
+
+			// Depth shader only needs these two uniforms
+			graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
+			graphics.SetUniform("modelMatrix", transform->GetMatrix());
+
+			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
+			if (model->mesh.IndexCount() > 0)
+				graphics.DrawIndexed(model->mesh.IndexCount());
+			else
+				graphics.DrawNonIndexed(model->mesh.VertexCount());
+		}
 		// =====================
 		// PASS 2: Scene with shadows
 		// =====================
@@ -292,10 +413,10 @@ int main(int argc, char* argv[])
 		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
 		graphics.Clear(true, true, false);
 
-		graphics.BindShader(phongShader);
-		graphics.SetUniform("viewMatrix", view);
-		graphics.SetUniform("projectionMatrix", projection);
-		graphics.SetUniform("viewPos", camera.position);
+		//graphics.BindShader(phongShader);
+		//graphics.SetUniform("viewMatrix", view);
+		//graphics.SetUniform("projectionMatrix", projection);
+		//graphics.SetUniform("viewPos", camera.position);
 
 		graphics.SetLight(light);
 
@@ -303,17 +424,71 @@ int main(int argc, char* argv[])
 		{
 			auto* transform = actor->GetComponent<TransformComponent>();
 			auto* model = actor->GetComponent<ModelComponent>();
+			auto* render = actor->GetComponent<RenderComponent>();
 
 			if (!transform || !model)
 				continue;
 
-			graphics.BindMaterial(model->material);
-			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
+			// Get shader - use RenderComponent if present, otherwise default
+			std::string shaderName = render ? render->shader : "phong_shadow";
+			ShaderProgram* shader = shaders.Get(shaderName);
+
+			if (!shader)
+				continue;
+
+			graphics.BindShader(*shader);
+
+			// Set standard uniforms
 			graphics.SetUniform("modelMatrix", transform->GetMatrix());
 			graphics.SetUniform("normalMatrix", transform->GetNormalMatrix());
-			graphics.DrawNonIndexed(model->mesh.VertexCount());
+			graphics.SetUniform("viewMatrix", view);
+			graphics.SetUniform("projectionMatrix", projection);
+			graphics.SetUniform("viewPos", camera.position);
+
+			// Set custom uniforms from RenderComponent
+			if (render)
+			{
+				render->ApplyUniforms(graphics);
+			}
+
+			graphics.SetLight(light);
+			graphics.BindMaterial(model->material);
+			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
+			if (model->mesh.IndexCount() > 0)
+				graphics.DrawIndexed(model->mesh.IndexCount());
+			else
+				graphics.DrawNonIndexed(model->mesh.VertexCount());
 		}
 
+		ShaderProgram* borderShader = shaders.Get("border");
+		if (borderShader)
+		{
+			graphics.BindShader(*borderShader);
+			graphics.SetDepthTest(true);
+
+			for (auto& actor : actors)
+			{
+				if (auto* borders = actor->GetComponent<BorderRenderer>())
+				{
+					borders->Render(graphics, view, projection);
+				}
+			}
+		}
+
+		ShaderProgram* markerShader = shaders.Get("border");
+		if (markerShader)
+		{
+			graphics.BindShader(*markerShader);
+			graphics.SetDepthTest(true);
+
+			for (auto& actor : actors)
+			{
+				if (auto* markers = actor->GetComponent<DestinationMarker>())
+				{
+					markers->Render(graphics, view, projection);
+				}
+			}
+		}
 		// =====================
 		// Skybox
 		// =====================
@@ -325,6 +500,61 @@ int main(int argc, char* argv[])
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
+
+		ImGui::Begin("Destinations");
+
+		for (auto& actor : actors)
+		{
+			if (auto* game = actor->GetComponent<GameManager>())
+			{
+				for (int i = 0; i < game->playerCard.destinations.size(); i++)
+				{
+					const auto& dest = game->playerCard.destinations[i];
+
+					// Create a unique ID for each button
+					ImGui::PushID(i);
+
+					if (dest.visited)
+					{
+						ImGui::TextColored(ImVec4(0, 1, 0, 1), "[X]");
+						ImGui::SameLine();
+						if (ImGui::Selectable(std::string(dest.cityName + ", " + dest.countryName).c_str()))
+						{
+							game->FocusOnDestination(i);
+						}
+					}
+					else if (i == game->playerCard.currentDestinationIndex)
+					{
+						ImGui::TextColored(ImVec4(1, 1, 0, 1), ">>>");
+						ImGui::SameLine();
+						if (ImGui::Selectable(std::string(dest.cityName + ", " + dest.countryName).c_str()))
+						{
+							game->FocusOnDestination(i);
+						}
+					}
+					else
+					{
+						ImGui::Text("[ ]");
+						ImGui::SameLine();
+						if (ImGui::Selectable(std::string(dest.cityName + ", " + dest.countryName).c_str()))
+						{
+							game->FocusOnDestination(i);
+						}
+					}
+
+					ImGui::PopID();
+				}
+
+				ImGui::Separator();
+
+				if (game->hoveredCity)
+					ImGui::Text("Hovering: %s, %s", game->hoveredCity->name.c_str(), game->hoveredCity->country.c_str());
+				else
+					ImGui::Text("Hovering: ---");
+			}
+		}
+
+		ImGui::End();
 
 		// Actor Hierarchy
 		ImGui::Begin("Actors");
@@ -343,46 +573,13 @@ int main(int argc, char* argv[])
 		{
 			Actor* actor = actors[selectedActor].get();
 
-			if (auto* transform = actor->GetComponent<TransformComponent>())
-			{
-				if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+			actor->ForEachComponent([](ActorComponent* component)
 				{
-					ImGui::DragFloat3("Position", &transform->position.x, 0.1f);
-					ImGui::DragFloat3("Rotation", &transform->rotation.x, 0.5f);
-					ImGui::DragFloat3("Scale", &transform->scale.x, 0.01f);
-				}
-			}
-
-			if (auto* model = actor->GetComponent<ModelComponent>())
-			{
-				if (ImGui::CollapsingHeader("Model", ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					ImGui::Text("Vertices: %d", model->mesh.VertexCount());
-					ImGui::Separator();
-					ImGui::ColorEdit3("Ambient", &model->material.properties.ambient.x);
-					ImGui::ColorEdit3("Diffuse", &model->material.properties.diffuse.x);
-					ImGui::ColorEdit3("Specular", &model->material.properties.specular.x);
-					ImGui::DragFloat("Shininess", &model->material.properties.shininess, 1.0f, 1.0f, 256.0f);
-				}
-			}
-
-			if (auto* skinned = actor->GetComponent<SkinnedModelComponent>())
-			{
-				if (ImGui::CollapsingHeader("Skinned Model", ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					ImGui::Text("Vertices: %d", skinned->mesh.VertexCount());
-					ImGui::Text("Bones: %d", (int)skinned->mesh.skeleton.bones.size());
-					ImGui::Text("Animations: %d", (int)skinned->mesh.animations.size());
-				}
-			}
-
-			if (actor->GetComponent<PhysicsComponent>())
-			{
-				if (ImGui::CollapsingHeader("Physics", ImGuiTreeNodeFlags_DefaultOpen))
-				{
-					ImGui::Text("Has Rigid Body");
-				}
-			}
+					if (ImGui::CollapsingHeader(component->GetName(), ImGuiTreeNodeFlags_DefaultOpen))
+					{
+						DrawPropertyInspector(component);
+					}
+				});
 		}
 		else
 		{

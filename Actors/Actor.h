@@ -47,6 +47,23 @@ public:
     {
         components.erase(std::type_index(typeid(T)));
     }
+
+    template<typename Func>
+    void ForEachComponent(Func&& func)
+    {
+        for (auto& [type, component] : components)
+        {
+            func(component.get());
+        }
+    }
+
+    void Update(float deltaTime)
+    {
+        for (auto& [type, component] : components)
+        {
+            component->OnUpdate(deltaTime);
+        }
+    }
 private:
     std::unordered_map<std::type_index, std::unique_ptr<ActorComponent>> components;
 };

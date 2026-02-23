@@ -3,7 +3,9 @@
 
 class ShaderProgram;
 class Material;
+class Texture;
 
+struct ScreenQuad;
 struct Skybox;
 struct DirectionalLight;
 
@@ -61,6 +63,7 @@ public:
 	void DrawNonIndexed(unsigned int numVertices);
 
 	void DrawSkybox(const Skybox& skybox, const glm::mat4& view, const glm::mat4& projection);
+	void DrawScreenQuad(const ScreenQuad& quad, const ShaderProgram& shader, const Texture& texture);
 private:
 	float clearR = 0.0f, clearG = 0.0f, clearB = 0.0f, clearA = 1.0f;
 	const ShaderProgram* currentShader = nullptr;

@@ -4,7 +4,7 @@
 #include "Rendering/Material.h"
 #include "Rendering/Skybox.h"
 #include "Rendering/Light.h"
-#include "Rendering/ScreenQuad.h"
+#include "Rendering/Quad.h"
 
 GraphicsDevice::GraphicsDevice()
 {
@@ -166,6 +166,14 @@ void GraphicsDevice::BindMaterial(const Material& material)
 
     SetUniform("hasDiffuseTexture", material.HasTexture(Material::Diffuse) ? 1 : 0);
     SetUniform("hasNormalMap", material.HasTexture(Material::Normal) ? 1 : 0);
+
+    SetUniform("hasHeightMap", material.HasTexture(Material::Height) ? 1 : 0);
+    if (material.HasTexture(Material::Height))
+    {
+        glActiveTexture(GL_TEXTURE0 + Material::Height);
+        glBindTexture(GL_TEXTURE_2D, material.GetTexture(Material::Height));
+        SetUniform("heightMap", (int)Material::Height);
+    }
 
     // Bind properties
     SetUniform("material.ambient", material.properties.ambient);

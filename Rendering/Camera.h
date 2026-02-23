@@ -67,6 +67,15 @@ public:
         UpdateVectors();
     }
 
+    void LookAt(const glm::vec3& target)
+    {
+        glm::vec3 lookDir = glm::normalize(target - position);
+
+        pitch = glm::degrees(asin(lookDir.y));
+        yaw = glm::degrees(atan2(lookDir.z, lookDir.x));
+
+        UpdateVectors();
+    }
 private:
     void UpdateVectors()
     {
