@@ -42,8 +42,6 @@ void Animator::Play(const Animation* animation)
 
 void Animator::Update(float deltaTime)
 {
-    std::println("currentAnimation: {}", (void*)currentAnimation);
-
     if (!currentAnimation)
         return;
 

@@ -177,6 +177,7 @@ int main(int argc, char* argv[])
 	shaders.Load("phong_shadow", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
 	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/skinned.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
 	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
+	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/skinned_depth.vert", GetMediaPath() / "Shaders/depth.frag");
 	shaders.Load("unlit", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/unlit.frag");
 
 	std::vector<std::unique_ptr<Actor>> actors;
@@ -363,6 +364,38 @@ int main(int argc, char* argv[])
 				graphics.DrawIndexed(model->mesh.IndexCount());
 			else
 				graphics.DrawNonIndexed(model->mesh.VertexCount());
+		}
+
+		for (auto& actor : actors)
+		{
+			auto* transform = actor->GetComponent<TransformComponent>();
+			auto* skinned = actor->GetComponent<SkinnedModelComponent>();
+			auto* render = actor->GetComponent<RenderComponent>();
+
+			if (!transform || !skinned)
+				continue;
+
+			if (render && !render->castsShadows)
+				continue;
+
+			ShaderProgram* depthShader = shaders.Get("skinned_depth");
+			if (!depthShader)
+				continue;
+
+			graphics.BindShader(*depthShader);
+			graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
+			graphics.SetUniform("modelMatrix", transform->GetMatrix());
+
+			const auto& bones = skinned->GetBoneMatrices();
+			static int dbg = 0;
+			if (dbg++ % 120 == 0)
+			{
+				std::println("Uploading {} bones, first bone translation: [{}, {}, {}]",
+					bones.size(), bones[0][3][0], bones[0][3][1], bones[0][3][2]);
+			}
+
+			graphics.BindResource(ResourceType::VERTEX_BUFFER, *skinned->mesh.vao);
+			graphics.DrawIndexed(skinned->mesh.IndexCount());
 		}
 		// =====================
 		// PASS 2: Scene with shadows
