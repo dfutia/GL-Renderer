@@ -65,8 +65,23 @@ struct Animation
 
     const BoneAnimation* FindChannel(const std::string& boneName) const
     {
+        // Try exact match first
         auto it = boneNameToChannel.find(boneName);
-        return it != boneNameToChannel.end() ? &channels[it->second] : nullptr;
+        if (it != boneNameToChannel.end())
+            return &channels[it->second];
+
+        // Try removing the "1" from "mixamorig1:" -> "mixamorig:"
+        std::string altName = boneName;
+        size_t pos = altName.find("mixamorig1:");
+        if (pos != std::string::npos)
+        {
+            altName.replace(pos, 11, "mixamorig:");
+            it = boneNameToChannel.find(altName);
+            if (it != boneNameToChannel.end())
+                return &channels[it->second];
+        }
+
+        return nullptr;
     }
 };
 

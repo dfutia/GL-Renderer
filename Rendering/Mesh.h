@@ -35,7 +35,6 @@ struct SkinnedMesh
     std::vector<SkinnedVertex> vertices;
     std::vector<unsigned int> indices;
     Skeleton skeleton;
-    std::vector<Animation> animations;
 
     int VertexCount() const { return static_cast<int>(vertices.size()); }
     int IndexCount() const { return static_cast<int>(indices.size()); }

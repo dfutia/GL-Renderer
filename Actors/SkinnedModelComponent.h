@@ -14,13 +14,7 @@ public:
         : mesh(mesh), material(material), animator(mesh.skeleton) {
     }
 
-    void PlayAnimation(int index)
-    {
-        if (index >= 0 && index < mesh.animations.size())
-            animator.Play(&mesh.animations[index]);
-    }
-
-    void Update(float deltaTime)
+    void OnUpdate(float deltaTime) override
     {
         animator.Update(deltaTime);
     }

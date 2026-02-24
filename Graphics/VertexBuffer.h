@@ -20,6 +20,7 @@ struct SkinnedVertex
 	glm::vec2 texCoords;
 	int boneIDs[4];
 	float boneWeights[4];
+	glm::vec3 tangent;
 };
 
 // Helper class for building vertex data

@@ -1,13 +1,9 @@
-﻿#include <variant>
-
-#include <SDL.h>
+﻿#include <SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
 
 #include "PCH.h"
-
-#include "Game/Game.h"
 
 #include "Platform/Window.h"
 #include "Platform/File.h"
@@ -174,14 +170,14 @@ int main(int argc, char* argv[])
 	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
 
 	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
+	SkinnedModel mannequinSkinned = LoadSkinnedModel((GetMediaPath() / "Models/mannequin.fbx").string());
+
+	std::vector<Animation> walkAnim = LoadAnimations((GetMediaPath() / "Models/Walking.fbx").string());
 
 	shaders.Load("phong_shadow", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
+	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/skinned.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
 	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
 	shaders.Load("unlit", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/unlit.frag");
-
-	// TODO: move this to game, but ShaderLibray needs to be global or passed to game
-	shaders.Load("earth", GetMediaPath() / "Shaders/earth.vert", GetMediaPath() / "Shaders/earth.frag");
-	shaders.Load("border", GetMediaPath() / "Shaders/border.vert", GetMediaPath() / "Shaders/border.frag");
 
 	std::vector<std::unique_ptr<Actor>> actors;
 
@@ -194,53 +190,55 @@ int main(int argc, char* argv[])
 	(GetMediaPath() / "Skybox/back.jpg").string()
 		});
 
-	//Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
+	Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
 
-	//Material cubeMaterial = Material::CreateDefault();
-	//cubeMaterial.SetTexture(Material::Diffuse, containerTexture);
+	Material cubeMaterial = Material::CreateDefault();
+	cubeMaterial.SetTexture(Material::DIFFUSE, containerTexture);
 
-	//Material floorMaterial = Material::CreateDefault();
-	//floorMaterial.SetTexture(Material::Diffuse, woodTexture);
+	Material floorMaterial = Material::CreateDefault();
+	floorMaterial.SetTexture(Material::DIFFUSE, woodTexture);
 
-	//for (int i = 0; i < 10; i++)
-	//{
-	//	auto cube = std::make_unique<Actor>();
+	for (int i = 0; i < 10; i++)
+	{
+		auto cube = std::make_unique<Actor>();
 
-	//	auto* transform = cube->AddComponent<TransformComponent>();
-	//	transform->position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f);
-	//	transform->rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);
-	//	transform->scale = glm::vec3(5.0f);
+		auto* transform = cube->AddComponent<TransformComponent>();
+		transform->position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f);
+		transform->rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);
+		transform->scale = glm::vec3(5.0f);
 
-	//	cube->AddComponent<ModelComponent>(cubeMesh, cubeMaterial);
+		cube->AddComponent<ModelComponent>(cubeMesh, cubeMaterial);
 
-	//	auto* phys = cube->AddComponent<PhysicsComponent>(physics);
-	//	phys->SetMass(1.0f);
-	//	phys->SetBoxShape(glm::vec3(5.0f, 5.0f, 5.0f));
+		auto* phys = cube->AddComponent<PhysicsComponent>(physics);
+		phys->SetMass(1.0f);
+		phys->SetBoxShape(glm::vec3(5.0f, 5.0f, 5.0f));
 
-	//	actors.push_back(std::move(cube));
-	//}
+		actors.push_back(std::move(cube));
+	}
 
-	//auto floor = std::make_unique<Actor>();
+	auto floor = std::make_unique<Actor>();
 
-	//auto* floorTransform = floor->AddComponent<TransformComponent>();
-	//floorTransform->position = glm::vec3(0.0f, -50.0f, 0.0f);
-	//floorTransform->scale = glm::vec3(500.0f, 1.0f, 500.0f);
+	auto* floorTransform = floor->AddComponent<TransformComponent>();
+	floorTransform->position = glm::vec3(0.0f, -50.0f, 0.0f);
+	floorTransform->scale = glm::vec3(500.0f, 1.0f, 500.0f);
 
-	//floor->AddComponent<ModelComponent>(cubeMesh, floorMaterial);
+	floor->AddComponent<ModelComponent>(cubeMesh, floorMaterial);
 
-	//auto* floorPhys = floor->AddComponent<PhysicsComponent>(physics);
-	//floorPhys->SetMass(0.0f);
-	//floorPhys->SetBoxShape(glm::vec3(500.0f, 1.0f, 500.0f));
+	auto* floorPhys = floor->AddComponent<PhysicsComponent>(physics);
+	floorPhys->SetMass(0.0f);
+	floorPhys->SetBoxShape(glm::vec3(500.0f, 1.0f, 500.0f));
 
-	//actors.push_back(std::move(floor));
+	actors.push_back(std::move(floor));
 
-	//auto mannequinActor = std::make_unique<Actor>();
+	auto mannequinActor = std::make_unique<Actor>();
 
-	//mannequinActor->AddComponent<TransformComponent>();
-	//mannequinActor->AddComponent<ModelComponent>(mannequin.mesh, mannequin.material);
-	//mannequinActor->AddComponent<RenderComponent>();
+	mannequinActor->AddComponent<TransformComponent>();
+	auto* skinned = mannequinActor->AddComponent<SkinnedModelComponent>(mannequinSkinned.mesh, mannequinSkinned.material);
+	mannequinActor->AddComponent<RenderComponent>();
 
-	//actors.push_back(std::move(mannequinActor));
+	skinned->animator.Play(&walkAnim[0]); // Play first animation
+
+	actors.push_back(std::move(mannequinActor));
 
 	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
 	FrameBuffer shadowMap(SHADOW_WIDTH, SHADOW_HEIGHT, FrameBuffer::DepthOnly, 0, 24);
@@ -254,15 +252,6 @@ int main(int argc, char* argv[])
 	light.direction = glm::normalize(glm::vec3(-200.0f, -300.0f, -200.0f));
 	light.color = glm::vec3(1.0f);
 	light.intensity = 1.0f;
-
-	GameMain(actors);
-	for (auto& actor : actors)
-	{
-		if (auto* game = actor->GetComponent<GameManager>())
-		{
-			game->camera = &camera;
-		}
-	}
 
 	bool mouseCaptured = true;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -291,33 +280,6 @@ int main(int argc, char* argv[])
 				if (mouseCaptured)
 				{
 					camera.ProcessMouseMovement((float)event.motion.xrel, -(float)event.motion.yrel);
-				}
-				else
-				{
-					// Update hover when mouse is free
-					for (auto& actor : actors)
-					{
-						if (auto* game = actor->GetComponent<GameManager>())
-						{
-							game->UpdateHover(
-								event.motion.x, event.motion.y,
-								window.GetWidth(), window.GetHeight(),
-								view, projection, camera.position);
-						}
-					}
-				}
-			}
-			else if (event.type == SDL_MOUSEBUTTONDOWN)
-			{
-				if (!mouseCaptured && event.button.button == SDL_BUTTON_LEFT)
-				{
-					for (auto& actor : actors)
-					{
-						if (auto* game = actor->GetComponent<GameManager>())
-						{
-							game->OnClick();
-						}
-					}
 				}
 			}
 			else if (event.type == SDL_KEYDOWN)
@@ -368,9 +330,6 @@ int main(int argc, char* argv[])
 		graphics.Clear(false, true, false);
 		graphics.SetDepthTest(true);
 
-		//graphics.BindShader(depthShader);
-		//graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
-
 		for (auto& actor : actors)
 		{
 			auto* transform = actor->GetComponent<TransformComponent>();
@@ -412,12 +371,6 @@ int main(int argc, char* argv[])
 		graphics.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
 		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
 		graphics.Clear(true, true, false);
-
-		//graphics.BindShader(phongShader);
-		//graphics.SetUniform("viewMatrix", view);
-		//graphics.SetUniform("projectionMatrix", projection);
-		//graphics.SetUniform("viewPos", camera.position);
-
 		graphics.SetLight(light);
 
 		for (auto& actor : actors)
@@ -460,34 +413,37 @@ int main(int argc, char* argv[])
 				graphics.DrawNonIndexed(model->mesh.VertexCount());
 		}
 
-		ShaderProgram* borderShader = shaders.Get("border");
-		if (borderShader)
+		for (auto& actor : actors)
 		{
-			graphics.BindShader(*borderShader);
-			graphics.SetDepthTest(true);
+			auto* transform = actor->GetComponent<TransformComponent>();
+			auto* skinned = actor->GetComponent<SkinnedModelComponent>();
 
-			for (auto& actor : actors)
+			if (!transform || !skinned)
+				continue;
+
+			ShaderProgram* shader = shaders.Get("skinned_phong");
+			if (!shader)
+				continue;
+
+			graphics.BindShader(*shader);
+
+			graphics.SetUniform("modelMatrix", transform->GetMatrix());
+			graphics.SetUniform("normalMatrix", transform->GetNormalMatrix());
+			graphics.SetUniform("viewMatrix", view);
+			graphics.SetUniform("projectionMatrix", projection);
+			graphics.SetUniform("viewPos", camera.position);
+
+			// Upload bone matrices
+			const auto& bones = skinned->GetBoneMatrices();
+			for (size_t i = 0; i < bones.size(); i++)
 			{
-				if (auto* borders = actor->GetComponent<BorderRenderer>())
-				{
-					borders->Render(graphics, view, projection);
-				}
+				graphics.SetUniform("bones[" + std::to_string(i) + "]", bones[i]);
 			}
-		}
 
-		ShaderProgram* markerShader = shaders.Get("border");
-		if (markerShader)
-		{
-			graphics.BindShader(*markerShader);
-			graphics.SetDepthTest(true);
-
-			for (auto& actor : actors)
-			{
-				if (auto* markers = actor->GetComponent<DestinationMarker>())
-				{
-					markers->Render(graphics, view, projection);
-				}
-			}
+			graphics.SetLight(light);
+			graphics.BindMaterial(skinned->material);
+			graphics.BindResource(ResourceType::VERTEX_BUFFER, *skinned->mesh.vao);
+			graphics.DrawIndexed(skinned->mesh.IndexCount());
 		}
 		// =====================
 		// Skybox
@@ -500,61 +456,6 @@ int main(int argc, char* argv[])
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
-
-		ImGui::Begin("Destinations");
-
-		for (auto& actor : actors)
-		{
-			if (auto* game = actor->GetComponent<GameManager>())
-			{
-				for (int i = 0; i < game->playerCard.destinations.size(); i++)
-				{
-					const auto& dest = game->playerCard.destinations[i];
-
-					// Create a unique ID for each button
-					ImGui::PushID(i);
-
-					if (dest.visited)
-					{
-						ImGui::TextColored(ImVec4(0, 1, 0, 1), "[X]");
-						ImGui::SameLine();
-						if (ImGui::Selectable(std::string(dest.cityName + ", " + dest.countryName).c_str()))
-						{
-							game->FocusOnDestination(i);
-						}
-					}
-					else if (i == game->playerCard.currentDestinationIndex)
-					{
-						ImGui::TextColored(ImVec4(1, 1, 0, 1), ">>>");
-						ImGui::SameLine();
-						if (ImGui::Selectable(std::string(dest.cityName + ", " + dest.countryName).c_str()))
-						{
-							game->FocusOnDestination(i);
-						}
-					}
-					else
-					{
-						ImGui::Text("[ ]");
-						ImGui::SameLine();
-						if (ImGui::Selectable(std::string(dest.cityName + ", " + dest.countryName).c_str()))
-						{
-							game->FocusOnDestination(i);
-						}
-					}
-
-					ImGui::PopID();
-				}
-
-				ImGui::Separator();
-
-				if (game->hoveredCity)
-					ImGui::Text("Hovering: %s, %s", game->hoveredCity->name.c_str(), game->hoveredCity->country.c_str());
-				else
-					ImGui::Text("Hovering: ---");
-			}
-		}
-
-		ImGui::End();
 
 		// Actor Hierarchy
 		ImGui::Begin("Actors");

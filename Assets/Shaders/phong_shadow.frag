@@ -1,4 +1,3 @@
-// phong_shadow.frag
 #version 330 core
 
 in VS_OUT {
@@ -12,8 +11,8 @@ in VS_OUT {
 
 out vec4 FragColor;
 
-uniform sampler2D texture0;  // diffuse
-uniform sampler2D texture2;  // normal map
+uniform sampler2D diffuse;
+uniform sampler2D normal;
 uniform sampler2D shadowMap;
 
 uniform int hasDiffuseTexture;
@@ -57,21 +56,21 @@ float ShadowCalculation(vec4 fragPosLightSpace)
 void main()
 {
     // Get normal from map or use default
-    vec3 normal;
+    vec3 N;
     if (hasNormalMap == 1)
     {
-        normal = texture(texture2, fs_in.TexCoords).rgb;
-        normal = normalize(normal * 2.0 - 1.0);
+        N = texture(normal, fs_in.TexCoords).rgb;
+        N = normalize(N * 2.0 - 1.0);
     }
     else
     {
-        normal = vec3(0.0, 0.0, 1.0); // default tangent-space normal
+        N = vec3(0.0, 0.0, 1.0);
     }
     
     // Get diffuse color
     vec3 diffuseColor = material.diffuse;
     if (hasDiffuseTexture == 1)
-        diffuseColor = texture(texture0, fs_in.TexCoords).rgb;
+        diffuseColor = texture(diffuse, fs_in.TexCoords).rgb;
     
     // Lighting in tangent space
     vec3 lightDir = normalize(fs_in.TangentLightDir);
@@ -82,16 +81,16 @@ void main()
     vec3 ambient = material.ambient * diffuseColor;
     
     // Diffuse
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * diffuseColor * light.color * light.intensity;
+    float diff = max(dot(N, lightDir), 0.0);
+    vec3 diffuseVec = diff * diffuseColor * light.color * light.intensity;
     
     // Specular
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    float spec = pow(max(dot(N, halfwayDir), 0.0), material.shininess);
     vec3 specular = spec * material.specular * light.color * light.intensity;
     
     // Shadow
     float shadow = ShadowCalculation(fs_in.FragPosLightSpace);
     
-    vec3 result = ambient + (1.0 - shadow) * (diffuse + specular);
+    vec3 result = ambient + (1.0 - shadow) * (diffuseVec + specular);
     FragColor = vec4(result, 1.0);
 }
