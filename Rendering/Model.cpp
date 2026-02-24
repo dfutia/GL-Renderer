@@ -176,8 +176,34 @@ Model LoadModel(const std::string& filepath)
     mesh->vao->BindAttribute(3, *mesh->vbo, GL_FLOAT, 3, stride, sizeof(float) * 8);
 
     // --- Build material ---
+    aiMaterial* aiMat = scene->mMaterials[aiM->mMaterialIndex];
+
     Material material = Material::CreateDefault();
 
+    // Extract material properties from assimp
+    aiColor3D color;
+    float value;
+
+    if (aiMat->Get(AI_MATKEY_COLOR_AMBIENT, color) == AI_SUCCESS)
+        material.properties.ambient = glm::vec3(color.r, color.g, color.b);
+
+    if (aiMat->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
+        material.properties.diffuse = glm::vec3(color.r, color.g, color.b);
+
+    if (aiMat->Get(AI_MATKEY_COLOR_SPECULAR, color) == AI_SUCCESS)
+        material.properties.specular = glm::vec3(color.r, color.g, color.b);
+
+    if (aiMat->Get(AI_MATKEY_SHININESS, value) == AI_SUCCESS)
+        material.properties.shininess = value;
+
+    // PBR properties (if using glTF or other PBR formats)
+    if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
+        material.properties.metallic = value;
+
+    if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
+        material.properties.roughness = value;
+
+    // Textures - use aiMat for these too
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
         material.SetTexture(Material::DIFFUSE, *texture);
 
@@ -439,8 +465,34 @@ SkinnedModel LoadSkinnedModel(const std::string& filepath)
     mesh->vao->BindElemenets(*ebo);
 
     // Build material
+    aiMaterial* aiMat = scene->mMaterials[aiM->mMaterialIndex];
+
     Material material = Material::CreateDefault();
 
+    // Extract material properties from assimp
+    aiColor3D color;
+    float value;
+
+    if (aiMat->Get(AI_MATKEY_COLOR_AMBIENT, color) == AI_SUCCESS)
+        material.properties.ambient = glm::vec3(color.r, color.g, color.b);
+
+    if (aiMat->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
+        material.properties.diffuse = glm::vec3(color.r, color.g, color.b);
+
+    if (aiMat->Get(AI_MATKEY_COLOR_SPECULAR, color) == AI_SUCCESS)
+        material.properties.specular = glm::vec3(color.r, color.g, color.b);
+
+    if (aiMat->Get(AI_MATKEY_SHININESS, value) == AI_SUCCESS)
+        material.properties.shininess = value;
+
+    // PBR properties (if using glTF or other PBR formats)
+    if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
+        material.properties.metallic = value;
+
+    if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
+        material.properties.roughness = value;
+
+    // Textures - use aiMat for these too
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
         material.SetTexture(Material::DIFFUSE, *texture);
 

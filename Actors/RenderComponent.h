@@ -15,7 +15,7 @@ class GraphicsDevice;
 class RenderComponent : public ActorComponent
 {
 public:
-    std::string shader = "phong_shadow";
+    std::string shader = "phong";
     std::string shadowShader = "depth";
 
     int renderQueue = 1000;

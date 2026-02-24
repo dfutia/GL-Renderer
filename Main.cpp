@@ -32,10 +32,10 @@
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/VertexBuffer.h"
 
-const unsigned int SHADOW_WIDTH = 2048;
-const unsigned int SHADOW_HEIGHT = 2048;
-//const unsigned int SHADOW_WIDTH = 4096;
-//const unsigned int SHADOW_HEIGHT = 4096;
+//const unsigned int SHADOW_WIDTH = 2048;
+//const unsigned int SHADOW_HEIGHT = 2048;
+const unsigned int SHADOW_WIDTH = 4096;
+const unsigned int SHADOW_HEIGHT = 4096;
 
 float cubeVerticesWithNormalsAndUVs[] = {
 	// positions          // normals           // texcoords
@@ -175,10 +175,10 @@ int main(int argc, char* argv[])
 	std::vector<Animation> walkAnim = LoadAnimations((GetMediaPath() / "Models/Walking.fbx").string());
 
 	shaders.Load("unlit", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/unlit.frag");
-	shaders.Load("phong_shadow", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
-	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong_shadow.frag", {"SKINNED"});
+	shaders.Load("phong", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong.frag");
+	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong.frag", { "SKINNED" });
 	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
-	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag", {"SKINNED"});
+	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag", { "SKINNED" });
 
 	std::vector<std::unique_ptr<Actor>> actors;
 
@@ -414,7 +414,7 @@ int main(int argc, char* argv[])
 				continue;
 
 			// Get shader - use RenderComponent if present, otherwise default
-			std::string shaderName = render ? render->shader : "phong_shadow";
+			std::string shaderName = render ? render->shader : "phong";
 			ShaderProgram* shader = shaders.Get(shaderName);
 
 			if (!shader)
