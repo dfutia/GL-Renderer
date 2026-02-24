@@ -151,6 +151,15 @@ void GraphicsDevice::SetUniform(const std::string& name, const glm::mat4& value)
         currentShader->SetUniform(currentShader->GetUniform(name), value);
 }
 
+void GraphicsDevice::SetUniform(const std::string& name, const std::vector<glm::mat4>& matrices)
+{
+    if (currentShader)
+    {
+        GLint loc = glGetUniformLocation(*currentShader, name.c_str());
+        glUniformMatrix4fv(loc, static_cast<GLsizei>(matrices.size()), GL_FALSE, &matrices[0][0][0]);
+    }
+}
+
 void GraphicsDevice::BindMaterial(const Material& material)
 {
     if (!currentShader)

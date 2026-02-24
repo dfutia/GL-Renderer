@@ -95,7 +95,7 @@ public:
 
     const std::vector<glm::mat4>& GetFinalBoneMatrices() const { return finalMatrices; }
 private:
-    const Skeleton& skeleton;
+    Skeleton skeleton;
     const Animation* currentAnimation = nullptr;
     float currentTime = 0.0f;
 

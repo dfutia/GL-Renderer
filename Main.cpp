@@ -170,15 +170,15 @@ int main(int argc, char* argv[])
 	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
 
 	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
-	SkinnedModel mannequinSkinned = LoadSkinnedModel((GetMediaPath() / "Models/mannequin.fbx").string());
+	SkinnedModel mannequinSkinned = LoadSkinnedModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx").string());
 
 	std::vector<Animation> walkAnim = LoadAnimations((GetMediaPath() / "Models/Walking.fbx").string());
 
-	shaders.Load("phong_shadow", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
-	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/skinned.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
+	shaders.Load("unlit", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/unlit.frag");
+	shaders.Load("phong_shadow", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong_shadow.frag");
+	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong_shadow.frag", {"SKINNED"});
 	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
-	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/skinned_depth.vert", GetMediaPath() / "Shaders/depth.frag");
-	shaders.Load("unlit", GetMediaPath() / "Shaders/static.vert", GetMediaPath() / "Shaders/unlit.frag");
+	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag", {"SKINNED"});
 
 	std::vector<std::unique_ptr<Actor>> actors;
 
@@ -387,11 +387,9 @@ int main(int argc, char* argv[])
 			graphics.SetUniform("modelMatrix", transform->GetMatrix());
 
 			const auto& bones = skinned->GetBoneMatrices();
-			static int dbg = 0;
-			if (dbg++ % 120 == 0)
+			for (size_t i = 0; i < bones.size(); i++)
 			{
-				std::println("Uploading {} bones, first bone translation: [{}, {}, {}]",
-					bones.size(), bones[0][3][0], bones[0][3][1], bones[0][3][2]);
+				graphics.SetUniform("bones[" + std::to_string(i) + "]", bones[i]);
 			}
 
 			graphics.BindResource(ResourceType::VERTEX_BUFFER, *skinned->mesh.vao);

@@ -357,6 +357,11 @@ SkinnedModel LoadSkinnedModel(const std::string& filepath)
             vertices[i].texCoords = glm::vec2(aiM->mTextureCoords[0][i].x, aiM->mTextureCoords[0][i].y);
         if (aiM->mTangents)
             vertices[i].tangent = glm::vec3(aiM->mTangents[i].x, aiM->mTangents[i].y, aiM->mTangents[i].z);
+        for (int k = 0; k < 4; k++)
+        {
+            vertices[i].boneIDs[k] = -1;
+            vertices[i].boneWeights[k] = 0.0f;
+        }
     }
 
     // Assign bone weights to vertices
@@ -378,6 +383,16 @@ SkinnedModel LoadSkinnedModel(const std::string& filepath)
                 }
             }
         }
+    }
+
+    // After building vertices, before uploading to GPU
+    for (int i = 0; i < std::min(10, (int)vertices.size()); i++)
+    {
+        auto& v = vertices[i];
+        std::println("Vertex {}: boneIDs=[{},{},{},{}] weights=[{},{},{},{}]",
+            i,
+            v.boneIDs[0], v.boneIDs[1], v.boneIDs[2], v.boneIDs[3],
+            v.boneWeights[0], v.boneWeights[1], v.boneWeights[2], v.boneWeights[3]);
     }
 
     // Build index buffer from faces

@@ -114,6 +114,20 @@ void Animator::Update(float deltaTime)
     {
         finalMatrices[i] = worldTransforms[i] * skeleton.bones[i].offsetMatrix;
     }
+
+    static int debugFrame = 0;
+    if (debugFrame++ % 120 == 0)
+    {
+        std::println("currentTime = {}", currentTime);
+        for (int i = 0; i < 3 && i < finalMatrices.size(); i++)
+        {
+            auto& m = finalMatrices[i];
+            std::println("  finalMatrices[{}] diag: [{}, {}, {}, {}]",
+                i, m[0][0], m[1][1], m[2][2], m[3][3]);
+            std::println("  finalMatrices[{}] translation: [{}, {}, {}]",
+                i, m[3][0], m[3][1], m[3][2]);
+        }
+    }
 }
 
 glm::vec3 Animator::InterpolatePosition(const BoneAnimation& channel, float time)
