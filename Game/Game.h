@@ -11,7 +11,6 @@
 #include "Platform/File.h"
 #include "Rendering/Mesh.h"
 #include "Rendering/Material.h"
-#include "Rendering/Heightmap.h"
 #include "Rendering/LineRenderer.h"
 #include "Graphics/VertexArray.h"
 #include "Graphics/VertexBuffer.h"
@@ -23,6 +22,7 @@
 #include "BorderRenderer.h"
 #include "GameManager.h"
 #include "GeoData.h"
+#include "EarthComponent.h"
 
 using json = nlohmann::json;
 
@@ -217,106 +217,30 @@ Mesh GenerateFaces(int resolution)
     return mesh;
 }
 
-class EarthComponent : public ActorComponent
-{
-public:
-    float heightMultiplier = 19.97f;
-    float seaLevel = 0.5f;
-    bool useSeaLevel = true;
-    glm::vec3 landColor = glm::vec3(0.2f, 0.6f, 0.1f);   // Green
-    glm::vec3 seaColor = glm::vec3(0.1f, 0.3f, 0.8f);    // Blue
-    glm::vec3 mountainColor = glm::vec3(0.5f, 0.4f, 0.3f); // Brown
-    glm::vec3 snowColor = glm::vec3(1.0f, 1.0f, 1.0f);   // White
-    float snowHeight = 0.8f;
-    float mountainHeight = 0.6f;
-    int resolution = 400;
-
-    Heightmap* heightmap = nullptr;
-
-    const char* GetName() const override { return "Earth"; }
-
-    void OnUpdate(float deltaTime) override
-    {
-        // Sync uniforms to RenderComponent every frame
-        if (auto* render = owner->GetComponent<RenderComponent>())
-        {
-            render->SetUniform("heightMultiplier", heightMultiplier);
-            render->SetUniform("seaLevel", seaLevel);
-            render->SetUniform("useSeaLevel", useSeaLevel ? 1 : 0);
-            render->SetUniform("seaColor", seaColor);
-            render->SetUniform("landColor", landColor);
-            render->SetUniform("mountainColor", mountainColor);
-            render->SetUniform("snowColor", snowColor);
-            render->SetUniform("mountainHeight", mountainHeight);
-            render->SetUniform("snowHeight", snowHeight);
-        }
-    }
-
-    void RegisterProperties(PropertyRegistry& registry) override
-    {
-        registry.Float("Height Multiplier", &heightMultiplier, 0.0f, 50.0f, 0.1f);
-        registry.Float("Sea Level", &seaLevel, 0.0f, 1.0f, 0.01f);
-        registry.Bool("Use Sea Level", &useSeaLevel);
-        registry.Color3("Sea Color", &seaColor);
-        registry.Color3("Land Color", &landColor);
-        registry.Color3("Mountain Color", &mountainColor);
-        registry.Color3("Snow Color", &snowColor);
-        registry.Float("Mountain Height", &mountainHeight, 0.0f, 1.0f, 0.01f);
-        registry.Float("Snow Height", &snowHeight, 0.0f, 1.0f, 0.01f);
-        registry.Int("Resolution", &resolution, 10, 200);
-    }
-};
-
-//class BorderComponent : public ActorComponent
-//{
-//public:
-//    float heightOffset = 0.002f;
-//
-//    void LoadBorders(const std::vector<CountryBorder>& countries)
-//    {
-//        lines.Clear();
-//
-//        for (const auto& country : countries)
-//        {
-//            for (const auto& polygon : country.polygons)
-//            {
-//                std::vector<glm::vec3> elevated;
-//                elevated.reserve(polygon.size());
-//
-//                for (const auto& p : polygon)
-//                    elevated.push_back(p * (1.0f + heightOffset));
-//
-//                lines.AddLineStrip(elevated, true);  // true = closed loop
-//            }
-//        }
-//    }
-//
-//    const char* GetName() const override { return "Borders"; }
-//
-//    void RegisterProperties(PropertyRegistry& registry) override
-//    {
-//        registry.Color3("Color", &lines.color);
-//        registry.Float("Line Width", &lines.lineWidth, 0.5f, 5.0f, 0.1f);
-//        registry.Float("Height Offset", &heightOffset, 0.0f, 0.01f, 0.0001f);
-//    }
-//
-//    LineRenderer lines;
-//};
-
 void GameMain(std::vector<std::unique_ptr<Actor>>& actors)
 {
     // Load heightmap as a TEXTURE, not a Heightmap object
-    Texture heightmapTexture = LoadTexture((GetMediaPath() / "Images/heightmap.png").string());
+    Texture heightmapTexture = LoadTextureHighQuality((GetMediaPath() / "Images/heightmap.png").string());
+    Texture colorTexture = LoadTextureHighQuality((GetMediaPath() / "Images/earthcolor.jpg").string());
+    Texture normalTexture = LoadTextureHighQuality((GetMediaPath() / "Images/earthnormal.jpg").string());
+    Texture specularTexture = LoadTextureHighQuality((GetMediaPath() / "Images/earthspecular.jpg").string());
+
+    Texture waveNormal2 = LoadTextureHighQuality((GetMediaPath() / "Images/waternormal2.jpg").string());
+    Texture waveNormal1 = LoadTextureHighQuality((GetMediaPath() / "Images/waternormal1.jpg").string());
 
     auto earth = std::make_unique<Actor>();
-
     auto* earthComp = earth->AddComponent<EarthComponent>();
 
     // Simple unit sphere mesh - no heightmap needed
     Mesh earthMesh = GenerateFaces(earthComp->resolution);
 
     Material earthMaterial = Material::CreateDefault();
-    earthMaterial.SetTexture(Material::Height, heightmapTexture);  // Slot 3 is Height
+    earthMaterial.SetTexture(Material::HEIGHT, heightmapTexture);
+    earthMaterial.SetTexture(Material::DIFFUSE, colorTexture);
+    earthMaterial.SetTexture(Material::NORMAL, normalTexture);
+    earthMaterial.SetTexture(Material::SPECULAR, specularTexture);
+    earthMaterial.SetTexture("waveNormal1", waveNormal1);
+    earthMaterial.SetTexture("waveNormal2", waveNormal2);
 
     auto* transform = earth->AddComponent<TransformComponent>();
     transform->position = glm::vec3(0.0f, 0.0f, 0.0f);

@@ -1,24 +1,24 @@
 #include "PCH.h"
 #include "Material.h"
 
-void Material::SetTexture(TextureSlot slot, const Texture& texture)
+void Material::SetTexture(const std::string& name, const Texture& texture)
 {
-    textures[slot] = texture;
+    textures[name] = texture;
 }
 
-void Material::RemoveTexture(TextureSlot slot)
+void Material::RemoveTexture(const std::string& name)
 {
-    textures.erase(slot);
+    textures.erase(name);
 }
 
-bool Material::HasTexture(TextureSlot slot) const
+bool Material::HasTexture(const std::string& name) const
 {
-    return textures.find(slot) != textures.end();
+    return textures.find(name) != textures.end();
 }
 
-const Texture& Material::GetTexture(TextureSlot slot) const
+const Texture& Material::GetTexture(const std::string& name) const
 {
-    return textures.at(slot);
+    return textures.at(name);
 }
 
 Material Material::CreateDefault()

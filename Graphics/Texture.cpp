@@ -187,6 +187,46 @@ Texture LoadTexture(const unsigned char* data, int byteLength)
 	return texture;
 }
 
+Texture LoadTextureHighQuality(const std::string& filepath)
+{
+	std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
+	if (fileData.empty())
+		throw std::runtime_error("Failed to load: " + filepath);
+
+	int width, height, channels;
+	unsigned char* pixels = stbi_load_from_memory(
+		fileData.data(), static_cast<int>(fileData.size()),
+		&width, &height, &channels, 0);
+
+	if (!pixels)
+		throw std::runtime_error("Failed to decode: " + filepath);
+
+	GLenum format;
+	switch (channels)
+	{
+	case 1: format = GL_RED;  break;
+	case 2: format = GL_RG;   break;
+	case 3: format = GL_RGB;  break;
+	default: format = GL_RGBA; break;
+	}
+
+	Texture texture;
+	texture.Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
+	texture.SetWrapping(Texture::Repeat, Texture::Repeat);
+
+	// Use anisotropic filtering for better quality at angles
+	texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
+	texture.GenerateMipmaps();
+
+	// Enable anisotropic filtering (big quality improvement!)
+	float maxAniso;
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &maxAniso);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, maxAniso);
+
+	stbi_image_free(pixels);
+	return texture;
+}
+
 Texture LoadCubemap(const std::array<std::string, 6>& faces)
 {
 	Texture texture;

@@ -74,6 +74,7 @@ private:
 	int channels = 0;
 };
 
+Texture LoadTextureHighQuality(const std::string& filepath);
 Texture LoadTexture(const std::string& filepath); // from file
 Texture LoadTexture(const unsigned char* data, int byteLength); // from memory
 Texture LoadCubemap(const std::array<std::string, 6>& faces);

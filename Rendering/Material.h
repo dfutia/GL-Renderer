@@ -29,31 +29,27 @@ struct MaterialProperties
 class Material
 {
 public:
-	enum TextureSlot
-	{
-		Diffuse = 0,
-		Specular = 1,
-		Normal = 2,
-		Height = 3,
-		Emission = 4,
-		Albedo = 5,
-		Metallic = 6,
-		Roughness = 7,
-		AO = 8,
-		Combined_MetallicRoughnessAO = 9, // R=AO, G=Roughness, B=Metallic
-		COUNT = 10
-	};
+	static constexpr const char* DIFFUSE = "diffuse";
+	static constexpr const char* SPECULAR = "specular";
+	static constexpr const char* NORMAL = "normal";
+	static constexpr const char* HEIGHT = "heightMap";
+	static constexpr const char* EMISSION = "emission";
+	static constexpr const char* ALBEDO = "albedo";
+	static constexpr const char* METALLIC = "metallic";
+	static constexpr const char* ROUGHNESS = "roughness";
+	static constexpr const char* AO = "ao";
 
 	Material() = default;
 	Material(const Material& other) = default;
 	~Material() = default;
 	Material& operator=(const Material& other) = default;
 
-	void SetTexture(TextureSlot slot, const Texture& texture);
-	void SetTexture(TextureSlot slot, const std::string& filename);
-	void RemoveTexture(TextureSlot slot);
-	bool HasTexture(TextureSlot slot) const;
-	const Texture& GetTexture(TextureSlot slot) const;
+	void SetTexture(const std::string& name, const Texture& texture);
+	void RemoveTexture(const std::string& name);
+	bool HasTexture(const std::string& name) const;
+	const Texture& GetTexture(const std::string& name) const;
+
+	const std::unordered_map<std::string, Texture>& GetAllTextures() const { return textures; }
 
 	static Material CreateDefault();
 	static Material CreateMetal();
@@ -61,7 +57,7 @@ public:
 	static Material CreatePBRDefault();
 
 	MaterialProperties properties;
-	std::map<TextureSlot, Texture> textures;
+	std::unordered_map<std::string, Texture> textures;
 };
 
 class MaterialLibrary

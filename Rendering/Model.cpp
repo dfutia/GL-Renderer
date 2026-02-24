@@ -179,13 +179,13 @@ Model LoadModel(const std::string& filepath)
     Material material = Material::CreateDefault();
 
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
-        material.SetTexture(Material::Diffuse, *texture);
+        material.SetTexture(Material::DIFFUSE, *texture);
 
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
-        material.SetTexture(Material::Specular, *texture);
+        material.SetTexture(Material::SPECULAR, *texture);
 
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_NORMALS))
-        material.SetTexture(Material::Normal, *texture);
+        material.SetTexture(Material::NORMAL, *texture);
 
     Model result;
     result.mesh = *mesh;
