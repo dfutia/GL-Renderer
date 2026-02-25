@@ -7,6 +7,8 @@
 
 #include "Platform/Window.h"
 #include "Platform/File.h"
+#include "Platform/DeltaTime.h"
+#include "Platform/Benchmark.h"
 
 #include "Physics/PhysicsWorld.h"
 
@@ -24,6 +26,7 @@
 #include "Rendering/Material.h"
 #include "Rendering/Light.h"
 #include "Rendering/ShaderLibrary.h"
+#include "Rendering/Primitives.h"
 
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/Texture.h"
@@ -31,68 +34,6 @@
 #include "Graphics/ShaderProgram.h"
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/VertexBuffer.h"
-
-//const unsigned int SHADOW_WIDTH = 2048;
-//const unsigned int SHADOW_HEIGHT = 2048;
-const unsigned int SHADOW_WIDTH = 4096;
-const unsigned int SHADOW_HEIGHT = 4096;
-
-float cubeVerticesWithNormalsAndUVs[] = {
-	// positions          // normals           // texcoords
-	// Back face
-	-1.0f, -1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-	 1.0f,  1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-	 1.0f, -1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-	 1.0f,  1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-	-1.0f, -1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-	-1.0f,  1.0f, -1.0f,   0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
-	// Front face
-	-1.0f, -1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-	 1.0f, -1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
-	 1.0f,  1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-	 1.0f,  1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-	-1.0f,  1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
-	-1.0f, -1.0f,  1.0f,   0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-	// Left face
-	-1.0f,  1.0f,  1.0f,  -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-	-1.0f,  1.0f, -1.0f,  -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-	-1.0f, -1.0f, -1.0f,  -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-	-1.0f, -1.0f, -1.0f,  -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-	-1.0f, -1.0f,  1.0f,  -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-	-1.0f,  1.0f,  1.0f,  -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-	// Right face
-	 1.0f,  1.0f,  1.0f,   1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-	 1.0f, -1.0f, -1.0f,   1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-	 1.0f,  1.0f, -1.0f,   1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-	 1.0f, -1.0f, -1.0f,   1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-	 1.0f,  1.0f,  1.0f,   1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-	 1.0f, -1.0f,  1.0f,   1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-	 // Bottom face
-	 -1.0f, -1.0f, -1.0f,   0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-	  1.0f, -1.0f, -1.0f,   0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-	  1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-	  1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-	 -1.0f, -1.0f,  1.0f,   0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
-	 -1.0f, -1.0f, -1.0f,   0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-	 // Top face
-	 -1.0f,  1.0f, -1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-	  1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-	  1.0f,  1.0f, -1.0f,   0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-	  1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-	 -1.0f,  1.0f, -1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-	 -1.0f,  1.0f,  1.0f,   0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-};
-
-float quadVertices[] = {
-	// positions   // texCoords
-	-1.0f,  1.0f,  0.0f, 1.0f,
-	-1.0f, -1.0f,  0.0f, 0.0f,
-	 1.0f, -1.0f,  1.0f, 0.0f,
-
-	-1.0f,  1.0f,  0.0f, 1.0f,
-	 1.0f, -1.0f,  1.0f, 0.0f,
-	 1.0f,  1.0f,  1.0f, 1.0f
-};
 
 void DrawPropertyInspector(ActorComponent* component)
 {
@@ -191,7 +132,7 @@ int main(int argc, char* argv[])
 	(GetMediaPath() / "Skybox/back.jpg").string()
 		});
 
-	Mesh cubeMesh = CreateMesh(cubeVerticesWithNormalsAndUVs, 36, sizeof(float) * 8);
+	Mesh cubeMesh = Primitives::CreateCube();
 
 	Material cubeMaterial = Material::CreateDefault();
 	cubeMaterial.SetTexture(Material::DIFFUSE, containerTexture);
@@ -241,9 +182,6 @@ int main(int argc, char* argv[])
 
 	actors.push_back(std::move(mannequinActor));
 
-	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
-	FrameBuffer shadowMap(SHADOW_WIDTH, SHADOW_HEIGHT, FrameBuffer::DepthOnly, 0, 24);
-
 	// Camera
 	Camera camera;
 	camera.position = glm::vec3(0.0f, 100.0f, 300.0f);
@@ -254,19 +192,21 @@ int main(int argc, char* argv[])
 	light.color = glm::vec3(1.0f);
 	light.intensity = 1.0f;
 
+	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
+	FrameBuffer shadowMap(light.shadowWidth, light.shadowHeight, FrameBuffer::DepthOnly, 0, 24);
+
 	bool mouseCaptured = true;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
-	Uint64 lastTime = SDL_GetPerformanceCounter();
+
+	DeltaTime deltaTime;
 	SDL_Event event;
 	bool running = true;
 	while (running)
 	{
-		Uint64 currentTime = SDL_GetPerformanceCounter();
-		float deltaTime = (currentTime - lastTime) / (float)SDL_GetPerformanceFrequency();
-		lastTime = currentTime;
+		float dt = deltaTime.Update();
 
 		glm::mat4 view = camera.GetViewMatrix();
-		glm::mat4 projection = camera.GetProjectionMatrix(window.GetAspectRatio());
+		glm::mat4 projection = camera.GetProjectionMatrix();
 
 		while (SDL_PollEvent(&event))
 		{
@@ -291,20 +231,37 @@ int main(int argc, char* argv[])
 					SDL_SetRelativeMouseMode(mouseCaptured ? SDL_TRUE : SDL_FALSE);
 				}
 			}
+			else if (event.type == SDL_WINDOWEVENT)
+			{
+				if (event.window.event == SDL_WINDOWEVENT_RESIZED || event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+				{
+					int newWidth = event.window.data1;
+					int newHeight = event.window.data2;
+					window.OnResize(newWidth, newHeight);
+					graphics.SetViewport(0, 0, newWidth, newHeight);
+					camera.aspectRatio = (float)newWidth / (float)newHeight;
+				}
+			}
 		}
 
 		if (mouseCaptured)
 		{
 			const Uint8* keystate = SDL_GetKeyboardState(NULL);
-			camera.ProcessKeyboard(keystate, deltaTime);
+			camera.ProcessKeyboard(keystate, dt);
 		}
 
-		for (auto& actor : actors)
 		{
-			actor->Update(deltaTime);
+			BENCHMARK_SCOPE("Animation");
+			for (auto& actor : actors)
+			{
+				actor->Update(dt);
+			}
 		}
 
-		physics.Update(deltaTime);
+		{
+			BENCHMARK_SCOPE("Physics");
+			physics.Update(dt);
+		}
 
 		// view: where the camera is and what it's looking at
 		//glm::mat4 view = camera.GetViewMatrix();
@@ -315,85 +272,91 @@ int main(int argc, char* argv[])
 		// =====================
 		// PASS 1: Shadow map
 		// =====================
-		glm::mat4 lightProjection = glm::ortho(
-			-light.shadowOrthoSize, light.shadowOrthoSize,
-			-light.shadowOrthoSize, light.shadowOrthoSize,
-			light.shadowNearPlane, light.shadowFarPlane
-		);
-		glm::vec3 lightPos = -light.direction * light.shadowDistance;
-		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-		light.lightSpaceMatrix = lightProjection * lightView;
-		light.shadowMap = &shadowMap.GetDepthTexture();
-
-		graphics.SetViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-		graphics.BindFrameBuffer(shadowMap);
-		graphics.Clear(false, true, false);
-		graphics.SetDepthTest(true);
-
-		for (auto& actor : actors)
 		{
-			auto* transform = actor->GetComponent<TransformComponent>();
-			auto* model = actor->GetComponent<ModelComponent>();
-			auto* render = actor->GetComponent<RenderComponent>();
+			BENCHMARK_SCOPE("Shadow Pass");
+			glm::mat4 lightProjection = glm::ortho(
+				-light.shadowOrthoSize, light.shadowOrthoSize,
+				-light.shadowOrthoSize, light.shadowOrthoSize,
+				light.shadowNearPlane, light.shadowFarPlane
+			);
+			glm::vec3 lightPos = -light.direction * light.shadowDistance;
+			glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			// shadows follow the camera
+			//glm::vec3 lightPos = camera.position - light.direction * light.shadowDistance;
+			//glm::mat4 lightView = glm::lookAt(lightPos, camera.position, glm::vec3(0.0f, 1.0f, 0.0f));
 
-			if (!transform || !model)
-				continue;
+			light.lightSpaceMatrix = lightProjection * lightView;
+			light.shadowMap = &shadowMap.GetDepthTexture();
 
-			// Skip objects that don't cast shadows
-			if (render && !render->castsShadows)
-				continue;
+			graphics.SetViewport(0, 0, light.shadowWidth, light.shadowHeight);
+			graphics.BindFrameBuffer(shadowMap);
+			graphics.Clear(false, true, false);
+			graphics.SetDepthTest(true);
 
-			// Shadow pass uses depth shader, NOT the object's rendering shader
-			std::string shadowShaderName = (render && !render->shadowShader.empty())
-				? render->shadowShader
-				: "depth";
-			ShaderProgram* depthShader = shaders.Get(shadowShaderName);
-
-			if (!depthShader)
-				continue;
-
-			graphics.BindShader(*depthShader);
-
-			// Depth shader only needs these two uniforms
-			graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
-			graphics.SetUniform("modelMatrix", transform->GetMatrix());
-
-			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
-			if (model->mesh.IndexCount() > 0)
-				graphics.DrawIndexed(model->mesh.IndexCount());
-			else
-				graphics.DrawNonIndexed(model->mesh.VertexCount());
-		}
-
-		for (auto& actor : actors)
-		{
-			auto* transform = actor->GetComponent<TransformComponent>();
-			auto* skinned = actor->GetComponent<SkinnedModelComponent>();
-			auto* render = actor->GetComponent<RenderComponent>();
-
-			if (!transform || !skinned)
-				continue;
-
-			if (render && !render->castsShadows)
-				continue;
-
-			ShaderProgram* depthShader = shaders.Get("skinned_depth");
-			if (!depthShader)
-				continue;
-
-			graphics.BindShader(*depthShader);
-			graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
-			graphics.SetUniform("modelMatrix", transform->GetMatrix());
-
-			const auto& bones = skinned->GetBoneMatrices();
-			for (size_t i = 0; i < bones.size(); i++)
+			for (auto& actor : actors)
 			{
-				graphics.SetUniform("bones[" + std::to_string(i) + "]", bones[i]);
+				auto* transform = actor->GetComponent<TransformComponent>();
+				auto* model = actor->GetComponent<ModelComponent>();
+				auto* render = actor->GetComponent<RenderComponent>();
+
+				if (!transform || !model)
+					continue;
+
+				// Skip objects that don't cast shadows
+				if (render && !render->castsShadows)
+					continue;
+
+				// Shadow pass uses depth shader, NOT the object's rendering shader
+				std::string shadowShaderName = (render && !render->shadowShader.empty())
+					? render->shadowShader
+					: "depth";
+				ShaderProgram* depthShader = shaders.Get(shadowShaderName);
+
+				if (!depthShader)
+					continue;
+
+				graphics.BindShader(*depthShader);
+
+				// Depth shader only needs these two uniforms
+				graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
+				graphics.SetUniform("modelMatrix", transform->GetMatrix());
+
+				graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
+				if (model->mesh.IndexCount() > 0)
+					graphics.DrawIndexed(model->mesh.IndexCount());
+				else
+					graphics.DrawNonIndexed(model->mesh.VertexCount());
 			}
 
-			graphics.BindResource(ResourceType::VERTEX_BUFFER, *skinned->mesh.vao);
-			graphics.DrawIndexed(skinned->mesh.IndexCount());
+			for (auto& actor : actors)
+			{
+				auto* transform = actor->GetComponent<TransformComponent>();
+				auto* skinned = actor->GetComponent<SkinnedModelComponent>();
+				auto* render = actor->GetComponent<RenderComponent>();
+
+				if (!transform || !skinned)
+					continue;
+
+				if (render && !render->castsShadows)
+					continue;
+
+				ShaderProgram* depthShader = shaders.Get("skinned_depth");
+				if (!depthShader)
+					continue;
+
+				graphics.BindShader(*depthShader);
+				graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
+				graphics.SetUniform("modelMatrix", transform->GetMatrix());
+
+				const auto& bones = skinned->GetBoneMatrices();
+				for (size_t i = 0; i < bones.size(); i++)
+				{
+					graphics.SetUniform("bones[" + std::to_string(i) + "]", bones[i]);
+				}
+
+				graphics.BindResource(ResourceType::VERTEX_BUFFER, *skinned->mesh.vao);
+				graphics.DrawIndexed(skinned->mesh.IndexCount());
+			}
 		}
 		// =====================
 		// PASS 2: Scene with shadows
@@ -551,9 +514,23 @@ int main(int argc, char* argv[])
 
 		// Performance
 		ImGui::Begin("Performance");
-		ImGui::Text("FPS: %.1f", 1.0f / deltaTime);
-		ImGui::Text("Frame Time: %.3f ms", deltaTime * 1000.0f);
+		ImGui::Text("FPS: %.1f", deltaTime.GetFPS());
+		ImGui::Text("Frame Time: %.3f ms", deltaTime.GetMS());
 		ImGui::Text("Actors: %d", (int)actors.size());
+		ImGui::End();
+
+		ImGui::Begin("Profiler");
+		for (const auto& [name, result] : Benchmarker::Instance().GetResults())
+		{
+			ImGui::Text("%s: %.2f us (avg: %.2f, min: %.2f, max: %.2f)",
+				name.c_str(),
+				result.lastTime,
+				result.avgTime,
+				result.minTime,
+				result.maxTime);
+		}
+		if (ImGui::Button("Reset Stats"))
+			Benchmarker::Instance().ResetAll();
 		ImGui::End();
 
 		ImGui::Render();

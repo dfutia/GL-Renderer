@@ -38,6 +38,11 @@ public:
 	int GetHeight() const { return config.height; }
 	float GetAspectRatio() const { return static_cast<float>(config.width) / static_cast<float>(config.height); }
 
+	void OnResize(int width, int height)
+	{
+		config.width = width;
+		config.height = height;
+	}
 private:
 	Config config;
 	SDL_Window* window;

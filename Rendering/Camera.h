@@ -22,12 +22,14 @@ public:
     float nearPlane = 0.1f;
     float farPlane = 10000.0f;
 
+    float aspectRatio = 16.0f / 9.0f;
+
     glm::mat4 GetViewMatrix() const
     {
         return glm::lookAt(position, position + front, up);
     }
 
-    glm::mat4 GetProjectionMatrix(float aspectRatio) const
+    glm::mat4 GetProjectionMatrix() const
     {
         return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
     }

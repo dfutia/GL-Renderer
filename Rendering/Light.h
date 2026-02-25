@@ -12,6 +12,8 @@ struct DirectionalLight
     const Texture* shadowMap = nullptr;
     glm::mat4 lightSpaceMatrix = glm::mat4(1.0f);
 
+    unsigned int shadowWidth = 4096;
+    unsigned int shadowHeight = 4096;
     float shadowNearPlane = 1.0f;
     float shadowFarPlane = 1500.0f;
     float shadowOrthoSize = 600.0f;

@@ -45,32 +45,6 @@ void Animator::Update(float deltaTime)
     if (!currentAnimation)
         return;
 
-    // Add this debug block
-    static bool debugOnce = true;
-    if (debugOnce)
-    {
-        std::println("Animation '{}': duration={}, ticksPerSecond={}",
-            currentAnimation->name, currentAnimation->duration, currentAnimation->ticksPerSecond);
-        std::println("Skeleton has {} bones, animation has {} channels",
-            skeleton.bones.size(), currentAnimation->channels.size());
-
-        int matched = 0;
-        for (const auto& bone : skeleton.bones)
-        {
-            const BoneAnimation* channel = currentAnimation->FindChannel(bone.name);
-            if (channel)
-                matched++;
-            else
-                std::println("  No channel for bone: '{}'", bone.name);
-        }
-        std::println("Matched {}/{} bones to channels", matched, skeleton.bones.size());
-
-        std::println("Animation channels:");
-        for (const auto& channel : currentAnimation->channels)
-            std::println("  '{}'", channel.boneName);
-        debugOnce = false;
-    }
-
     currentTime += deltaTime * currentAnimation->ticksPerSecond;
     if (currentTime > currentAnimation->duration)
         currentTime = fmod(currentTime, currentAnimation->duration);
@@ -113,20 +87,6 @@ void Animator::Update(float deltaTime)
     for (int i = 0; i < skeleton.bones.size(); i++)
     {
         finalMatrices[i] = worldTransforms[i] * skeleton.bones[i].offsetMatrix;
-    }
-
-    static int debugFrame = 0;
-    if (debugFrame++ % 120 == 0)
-    {
-        std::println("currentTime = {}", currentTime);
-        for (int i = 0; i < 3 && i < finalMatrices.size(); i++)
-        {
-            auto& m = finalMatrices[i];
-            std::println("  finalMatrices[{}] diag: [{}, {}, {}, {}]",
-                i, m[0][0], m[1][1], m[2][2], m[3][3]);
-            std::println("  finalMatrices[{}] translation: [{}, {}, {}]",
-                i, m[3][0], m[3][1], m[3][2]);
-        }
     }
 }
 

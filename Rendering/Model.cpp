@@ -411,16 +411,6 @@ SkinnedModel LoadSkinnedModel(const std::string& filepath)
         }
     }
 
-    // After building vertices, before uploading to GPU
-    for (int i = 0; i < std::min(10, (int)vertices.size()); i++)
-    {
-        auto& v = vertices[i];
-        std::println("Vertex {}: boneIDs=[{},{},{},{}] weights=[{},{},{},{}]",
-            i,
-            v.boneIDs[0], v.boneIDs[1], v.boneIDs[2], v.boneIDs[3],
-            v.boneWeights[0], v.boneWeights[1], v.boneWeights[2], v.boneWeights[3]);
-    }
-
     // Build index buffer from faces
     std::vector<unsigned int> indices;
     indices.reserve(aiM->mNumFaces * 3);

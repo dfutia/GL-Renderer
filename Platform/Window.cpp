@@ -107,7 +107,7 @@ bool Window::CreateWindow()
 		SDL_WINDOWPOS_CENTERED,
 		config.width,
 		config.height,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
 	);
 
 	if (window == nullptr)
