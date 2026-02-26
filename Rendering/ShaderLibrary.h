@@ -1,7 +1,6 @@
 #ifndef SHADER_LIBRARY_H
 #define SHADER_LIBRARY_H
 
-#include "Graphics/ComputeProgram.h"
 #include "Graphics/ShaderProgram.h"
 #include "Graphics/Shader.h"
 #include "Platform/File.h"
@@ -41,22 +40,10 @@ public:
         shaders[name] = program;
     }
 
-    void LoadCompute(const std::string& name, const std::filesystem::path& computePath)
-    {
-        std::string source = ReadTextFile(computePath);
-        computeShaders[name] = ComputeProgram(source);
-    }
-
     ShaderProgram* Get(const std::string& name)
     {
         auto it = shaders.find(name);
         return it != shaders.end() ? &it->second : nullptr;
-    }
-
-    ComputeProgram* GetCompute(const std::string& name)
-    {
-        auto it = computeShaders.find(name);
-        return it != computeShaders.end() ? &it->second : nullptr;
     }
 
     bool Has(const std::string& name) const
@@ -66,7 +53,6 @@ public:
 
 private:
     std::unordered_map<std::string, ShaderProgram> shaders;
-    std::unordered_map<std::string, ComputeProgram> computeShaders;
 
     std::string BuildDefineBlock(const std::vector<std::string>& defines)
     {
