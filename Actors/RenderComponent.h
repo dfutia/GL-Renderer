@@ -2,13 +2,11 @@
 #define RENDER_COMPONENT_H
 
 #include <string>
-
-#include "ActorComponent.h"
-
-#include "ActorComponent.h"
-#include <string>
 #include <unordered_map>
 #include <variant>
+
+#include "ActorComponent.h"
+#include "Rendering/RenderQueue.h"
 
 class GraphicsDevice;
 
@@ -18,9 +16,14 @@ public:
     std::string shader = "phong";
     std::string shadowShader = "depth";
 
-    int renderQueue = 1000;
+    int renderQueue = RenderQueue::Opaque;
     bool castsShadows = true;
     bool visible = true;
+
+    // For sorting within the same queue
+    // Opaque: lower depth first (front-to-back)
+    // Transparent: higher depth first (back-to-front)
+    float sortingOrder = 0.0f;
 
     // Separate maps for each type
     std::unordered_map<std::string, int> uniformsInt;
@@ -49,6 +52,7 @@ public:
         registry.String("Shader", &shader);
         registry.String("Shadow Shader", &shadowShader);
         registry.Int("Render Queue", &renderQueue, 0, 10000);
+        registry.Float("Sorting Order", &sortingOrder, -1000.0f, 1000.0f, 0.1f);
         registry.Bool("Casts Shadows", &castsShadows);
         registry.Bool("Visible", &visible);
     }

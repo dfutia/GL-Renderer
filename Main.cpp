@@ -27,6 +27,8 @@
 #include "Rendering/Light.h"
 #include "Rendering/ShaderLibrary.h"
 #include "Rendering/Primitives.h"
+#include "Rendering/Renderer.h"
+#include "Rendering/Scene.h"
 
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/Texture.h"
@@ -104,8 +106,11 @@ int main(int argc, char* argv[])
 	ImGui::StyleColorsDark();
 
 	GraphicsDevice graphics;
-	PhysicsWorld physics;
 	ShaderLibrary shaders;
+	Renderer renderer(graphics, shaders);
+	PhysicsWorld physics;
+	Scene scene;
+	scene.physics = &physics;
 
 	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
 	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
@@ -121,16 +126,28 @@ int main(int argc, char* argv[])
 	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
 	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag", { "SKINNED" });
 
-	std::vector<std::unique_ptr<Actor>> actors;
+	// Camera
+	Camera camera;
+	camera.position = glm::vec3(0.0f, 100.0f, 300.0f);
+	camera.aspectRatio = window.GetAspectRatio();
+	scene.mainCamera = &camera;
+
+	// light
+	DirectionalLight light;
+	light.direction = glm::normalize(glm::vec3(-200.0f, -300.0f, -200.0f));
+	light.color = glm::vec3(1.0f);
+	light.intensity = 1.0f;
+	scene.mainLight = &light;
 
 	Skybox skybox = LoadSkybox({
-	(GetMediaPath() / "Skybox/right.jpg").string(),
-	(GetMediaPath() / "Skybox/left.jpg").string(),
-	(GetMediaPath() / "Skybox/top.jpg").string(),
-	(GetMediaPath() / "Skybox/bottom.jpg").string(),
-	(GetMediaPath() / "Skybox/front.jpg").string(),
-	(GetMediaPath() / "Skybox/back.jpg").string()
-		});
+		(GetMediaPath() / "Skybox/right.jpg").string(),
+		(GetMediaPath() / "Skybox/left.jpg").string(),
+		(GetMediaPath() / "Skybox/top.jpg").string(),
+		(GetMediaPath() / "Skybox/bottom.jpg").string(),
+		(GetMediaPath() / "Skybox/front.jpg").string(),
+		(GetMediaPath() / "Skybox/back.jpg").string()
+	});
+	scene.skybox = &skybox;
 
 	Mesh cubeMesh = Primitives::CreateCube();
 
@@ -142,7 +159,7 @@ int main(int argc, char* argv[])
 
 	for (int i = 0; i < 10; i++)
 	{
-		auto cube = std::make_unique<Actor>();
+		auto cube = scene.CreateActor();
 
 		auto* transform = cube->AddComponent<TransformComponent>();
 		transform->position = glm::vec3(i * 30.0f - 135.0f, 0.0f, 0.0f);
@@ -154,11 +171,9 @@ int main(int argc, char* argv[])
 		auto* phys = cube->AddComponent<PhysicsComponent>(physics);
 		phys->SetMass(1.0f);
 		phys->SetBoxShape(glm::vec3(5.0f, 5.0f, 5.0f));
-
-		actors.push_back(std::move(cube));
 	}
 
-	auto floor = std::make_unique<Actor>();
+	auto floor = scene.CreateActor();
 
 	auto* floorTransform = floor->AddComponent<TransformComponent>();
 	floorTransform->position = glm::vec3(0.0f, -50.0f, 0.0f);
@@ -170,9 +185,7 @@ int main(int argc, char* argv[])
 	floorPhys->SetMass(0.0f);
 	floorPhys->SetBoxShape(glm::vec3(500.0f, 1.0f, 500.0f));
 
-	actors.push_back(std::move(floor));
-
-	auto mannequinActor = std::make_unique<Actor>();
+	auto mannequinActor = scene.CreateActor();
 
 	mannequinActor->AddComponent<TransformComponent>();
 	auto* skinned = mannequinActor->AddComponent<SkinnedModelComponent>(mannequinSkinned.mesh, mannequinSkinned.material);
@@ -180,33 +193,21 @@ int main(int argc, char* argv[])
 
 	skinned->animator.Play(&walkAnim[0]); // Play first animation
 
-	actors.push_back(std::move(mannequinActor));
-
-	// Camera
-	Camera camera;
-	camera.position = glm::vec3(0.0f, 100.0f, 300.0f);
-
-	// light
-	DirectionalLight light;
-	light.direction = glm::normalize(glm::vec3(-200.0f, -300.0f, -200.0f));
-	light.color = glm::vec3(1.0f);
-	light.intensity = 1.0f;
-
-	FrameBuffer sceneFBO(window.GetWidth(), window.GetHeight(), FrameBuffer::ColorAndDepth, 32, 24);
-	FrameBuffer shadowMap(light.shadowWidth, light.shadowHeight, FrameBuffer::DepthOnly, 0, 24);
+	renderer.SetCamera(&camera);
+	renderer.SetLight(&light);
+	renderer.SetSkybox(&skybox);
+	renderer.SetViewport(window.GetWidth(), window.GetHeight());
 
 	bool mouseCaptured = true;
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 
+	RenderBatch batch;
 	DeltaTime deltaTime;
 	SDL_Event event;
 	bool running = true;
 	while (running)
 	{
 		float dt = deltaTime.Update();
-
-		glm::mat4 view = camera.GetViewMatrix();
-		glm::mat4 projection = camera.GetProjectionMatrix();
 
 		while (SDL_PollEvent(&event))
 		{
@@ -238,7 +239,7 @@ int main(int argc, char* argv[])
 					int newWidth = event.window.data1;
 					int newHeight = event.window.data2;
 					window.OnResize(newWidth, newHeight);
-					graphics.SetViewport(0, 0, newWidth, newHeight);
+					renderer.SetViewport(window.GetWidth(), window.GetHeight());
 					camera.aspectRatio = (float)newWidth / (float)newHeight;
 				}
 			}
@@ -251,290 +252,106 @@ int main(int argc, char* argv[])
 		}
 
 		{
-			BENCHMARK_SCOPE("Animation");
-			for (auto& actor : actors)
-			{
-				actor->Update(dt);
-			}
-		}
-
-		{
 			BENCHMARK_SCOPE("Physics");
 			physics.Update(dt);
 		}
 
-		// view: where the camera is and what it's looking at
-		//glm::mat4 view = camera.GetViewMatrix();
+		scene.Update(dt);
 
-		// projection: the lens of the camera (perspective/FOV or orthographic, near/far clip planes)
-		//glm::mat4 projection = camera.GetProjectionMatrix(window.GetAspectRatio());
-
-		// =====================
-		// PASS 1: Shadow map
-		// =====================
-		{
-			BENCHMARK_SCOPE("Shadow Pass");
-			glm::mat4 lightProjection = glm::ortho(
-				-light.shadowOrthoSize, light.shadowOrthoSize,
-				-light.shadowOrthoSize, light.shadowOrthoSize,
-				light.shadowNearPlane, light.shadowFarPlane
-			);
-			glm::vec3 lightPos = -light.direction * light.shadowDistance;
-			glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			// shadows follow the camera
-			//glm::vec3 lightPos = camera.position - light.direction * light.shadowDistance;
-			//glm::mat4 lightView = glm::lookAt(lightPos, camera.position, glm::vec3(0.0f, 1.0f, 0.0f));
-
-			light.lightSpaceMatrix = lightProjection * lightView;
-			light.shadowMap = &shadowMap.GetDepthTexture();
-
-			graphics.SetViewport(0, 0, light.shadowWidth, light.shadowHeight);
-			graphics.BindFrameBuffer(shadowMap);
-			graphics.Clear(false, true, false);
-			graphics.SetDepthTest(true);
-
-			for (auto& actor : actors)
-			{
-				auto* transform = actor->GetComponent<TransformComponent>();
-				auto* model = actor->GetComponent<ModelComponent>();
-				auto* render = actor->GetComponent<RenderComponent>();
-
-				if (!transform || !model)
-					continue;
-
-				// Skip objects that don't cast shadows
-				if (render && !render->castsShadows)
-					continue;
-
-				// Shadow pass uses depth shader, NOT the object's rendering shader
-				std::string shadowShaderName = (render && !render->shadowShader.empty())
-					? render->shadowShader
-					: "depth";
-				ShaderProgram* depthShader = shaders.Get(shadowShaderName);
-
-				if (!depthShader)
-					continue;
-
-				graphics.BindShader(*depthShader);
-
-				// Depth shader only needs these two uniforms
-				graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
-				graphics.SetUniform("modelMatrix", transform->GetMatrix());
-
-				graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
-				if (model->mesh.IndexCount() > 0)
-					graphics.DrawIndexed(model->mesh.IndexCount());
-				else
-					graphics.DrawNonIndexed(model->mesh.VertexCount());
-			}
-
-			for (auto& actor : actors)
-			{
-				auto* transform = actor->GetComponent<TransformComponent>();
-				auto* skinned = actor->GetComponent<SkinnedModelComponent>();
-				auto* render = actor->GetComponent<RenderComponent>();
-
-				if (!transform || !skinned)
-					continue;
-
-				if (render && !render->castsShadows)
-					continue;
-
-				ShaderProgram* depthShader = shaders.Get("skinned_depth");
-				if (!depthShader)
-					continue;
-
-				graphics.BindShader(*depthShader);
-				graphics.SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
-				graphics.SetUniform("modelMatrix", transform->GetMatrix());
-
-				const auto& bones = skinned->GetBoneMatrices();
-				for (size_t i = 0; i < bones.size(); i++)
-				{
-					graphics.SetUniform("bones[" + std::to_string(i) + "]", bones[i]);
-				}
-
-				graphics.BindResource(ResourceType::VERTEX_BUFFER, *skinned->mesh.vao);
-				graphics.DrawIndexed(skinned->mesh.IndexCount());
-			}
-		}
-		// =====================
-		// PASS 2: Scene with shadows
-		// =====================
-		graphics.BindFrameBuffer(0);
-		graphics.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
-		graphics.SetClearColor(0.0f, 0.0f, 0.0f);
-		graphics.Clear(true, true, false);
-		graphics.SetLight(light);
-
-		for (auto& actor : actors)
-		{
-			auto* transform = actor->GetComponent<TransformComponent>();
-			auto* model = actor->GetComponent<ModelComponent>();
-			auto* render = actor->GetComponent<RenderComponent>();
-
-			if (!transform || !model)
-				continue;
-
-			// Get shader - use RenderComponent if present, otherwise default
-			std::string shaderName = render ? render->shader : "phong";
-			ShaderProgram* shader = shaders.Get(shaderName);
-
-			if (!shader)
-				continue;
-
-			graphics.BindShader(*shader);
-
-			// Set standard uniforms
-			graphics.SetUniform("modelMatrix", transform->GetMatrix());
-			graphics.SetUniform("normalMatrix", transform->GetNormalMatrix());
-			graphics.SetUniform("viewMatrix", view);
-			graphics.SetUniform("projectionMatrix", projection);
-			graphics.SetUniform("viewPos", camera.position);
-
-			// Set custom uniforms from RenderComponent
-			if (render)
-			{
-				render->ApplyUniforms(graphics);
-			}
-
-			graphics.SetLight(light);
-			graphics.BindMaterial(model->material);
-			graphics.BindResource(ResourceType::VERTEX_BUFFER, *model->mesh.vao);
-			if (model->mesh.IndexCount() > 0)
-				graphics.DrawIndexed(model->mesh.IndexCount());
-			else
-				graphics.DrawNonIndexed(model->mesh.VertexCount());
-		}
-
-		for (auto& actor : actors)
-		{
-			auto* transform = actor->GetComponent<TransformComponent>();
-			auto* skinned = actor->GetComponent<SkinnedModelComponent>();
-
-			if (!transform || !skinned)
-				continue;
-
-			ShaderProgram* shader = shaders.Get("skinned_phong");
-			if (!shader)
-				continue;
-
-			graphics.BindShader(*shader);
-
-			graphics.SetUniform("modelMatrix", transform->GetMatrix());
-			graphics.SetUniform("normalMatrix", transform->GetNormalMatrix());
-			graphics.SetUniform("viewMatrix", view);
-			graphics.SetUniform("projectionMatrix", projection);
-			graphics.SetUniform("viewPos", camera.position);
-
-			// Upload bone matrices
-			const auto& bones = skinned->GetBoneMatrices();
-			for (size_t i = 0; i < bones.size(); i++)
-			{
-				graphics.SetUniform("bones[" + std::to_string(i) + "]", bones[i]);
-			}
-
-			graphics.SetLight(light);
-			graphics.BindMaterial(skinned->material);
-			graphics.BindResource(ResourceType::VERTEX_BUFFER, *skinned->mesh.vao);
-			graphics.DrawIndexed(skinned->mesh.IndexCount());
-		}
-		// =====================
-		// Skybox
-		// =====================
-		graphics.DrawSkybox(skybox, view, projection);
+		scene.GatherRenderables(batch, camera.position);
+		renderer.Render(batch);
 
 		// =====================
 		// Imgui
 		// =====================
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplSDL2_NewFrame();
-		ImGui::NewFrame();
-
-		// Actor Hierarchy
-		ImGui::Begin("Actors");
-		static int selectedActor = -1;
-		for (int i = 0; i < actors.size(); i++)
 		{
-			std::string label = "Actor " + std::to_string(i);
-			if (ImGui::Selectable(label.c_str(), selectedActor == i))
-				selectedActor = i;
-		}
-		ImGui::End();
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplSDL2_NewFrame();
+			ImGui::NewFrame();
 
-		// Inspector
-		ImGui::Begin("Inspector");
-		if (selectedActor >= 0 && selectedActor < actors.size())
-		{
-			Actor* actor = actors[selectedActor].get();
-
-			actor->ForEachComponent([](ActorComponent* component)
-				{
-					if (ImGui::CollapsingHeader(component->GetName(), ImGuiTreeNodeFlags_DefaultOpen))
-					{
-						DrawPropertyInspector(component);
-					}
+			// Actor Hierarchy
+			ImGui::Begin("Actors");
+			static Actor* selectedActor = nullptr;
+			int index = 0;
+			scene.ForEachActor([&](Actor* actor) {
+				std::string label = "Actor " + std::to_string(index);
+				if (ImGui::Selectable(label.c_str(), selectedActor == actor))
+					selectedActor = actor;
+				index++;
 				});
+			ImGui::End();
+
+			// Inspector
+			ImGui::Begin("Inspector");
+			if (selectedActor)
+			{
+				selectedActor->ForEachComponent([](ActorComponent* component)
+					{
+						if (ImGui::CollapsingHeader(component->GetName(), ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							DrawPropertyInspector(component);
+						}
+					});
+			}
+			else
+			{
+				ImGui::Text("No actor selected");
+			}
+			ImGui::End();
+
+			// Light
+			ImGui::Begin("Light");
+			ImGui::DragFloat3("Direction", &light.direction.x, 0.01f);
+			if (ImGui::Button("Normalize"))
+				light.direction = glm::normalize(light.direction);
+			ImGui::ColorEdit3("Color", &light.color.x);
+			ImGui::DragFloat("Intensity", &light.intensity, 0.01f, 0.0f, 10.0f);
+
+			if (ImGui::CollapsingHeader("Shadows"))
+			{
+				ImGui::DragFloat("Near Plane", &light.shadowNearPlane, 0.1f, 0.1f, 100.0f);
+				ImGui::DragFloat("Far Plane", &light.shadowFarPlane, 1.0f, 100.0f, 5000.0f);
+				ImGui::DragFloat("Ortho Size", &light.shadowOrthoSize, 1.0f, 10.0f, 2000.0f);
+				ImGui::DragFloat("Distance", &light.shadowDistance, 1.0f, 100.0f, 2000.0f);
+			}
+			ImGui::End();
+
+			// Camera
+			ImGui::Begin("Camera");
+			ImGui::DragFloat3("Position", &camera.position.x, 0.1f);
+			ImGui::Text("Yaw: %.2f", camera.yaw);
+			ImGui::Text("Pitch: %.2f", camera.pitch);
+			ImGui::DragFloat("Move Speed", &camera.moveSpeed, 1.0f, 1.0f, 1000.0f);
+			ImGui::DragFloat("Sensitivity", &camera.mouseSensitivity, 0.01f, 0.01f, 1.0f);
+			ImGui::Separator();
+			ImGui::DragFloat("FOV", &camera.fov, 0.5f, 1.0f, 120.0f);
+			ImGui::DragFloat("Near Plane", &camera.nearPlane, 0.01f, 0.01f, 10.0f);
+			ImGui::DragFloat("Far Plane", &camera.farPlane, 10.0f, 100.0f, 50000.0f);
+			ImGui::End();
+
+			// Performance
+			ImGui::Begin("Performance");
+			ImGui::Text("FPS: %.1f", deltaTime.GetFPS());
+			ImGui::Text("Frame Time: %.3f ms", deltaTime.GetMS());
+			ImGui::End();
+
+			ImGui::Begin("Profiler");
+			for (const auto& [name, result] : Benchmarker::Instance().GetResults())
+			{
+				ImGui::Text("%s: %.2f us (avg: %.2f, min: %.2f, max: %.2f)",
+					name.c_str(),
+					result.lastTime,
+					result.avgTime,
+					result.minTime,
+					result.maxTime);
+			}
+			if (ImGui::Button("Reset Stats"))
+				Benchmarker::Instance().ResetAll();
+			ImGui::End();
+
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		}
-		else
-		{
-			ImGui::Text("No actor selected");
-		}
-		ImGui::End();
-
-		// Light
-		ImGui::Begin("Light");
-		ImGui::DragFloat3("Direction", &light.direction.x, 0.01f);
-		if (ImGui::Button("Normalize"))
-			light.direction = glm::normalize(light.direction);
-		ImGui::ColorEdit3("Color", &light.color.x);
-		ImGui::DragFloat("Intensity", &light.intensity, 0.01f, 0.0f, 10.0f);
-
-		if (ImGui::CollapsingHeader("Shadows"))
-		{
-			ImGui::DragFloat("Near Plane", &light.shadowNearPlane, 0.1f, 0.1f, 100.0f);
-			ImGui::DragFloat("Far Plane", &light.shadowFarPlane, 1.0f, 100.0f, 5000.0f);
-			ImGui::DragFloat("Ortho Size", &light.shadowOrthoSize, 1.0f, 10.0f, 2000.0f);
-			ImGui::DragFloat("Distance", &light.shadowDistance, 1.0f, 100.0f, 2000.0f);
-		}
-		ImGui::End();
-
-		// Camera
-		ImGui::Begin("Camera");
-		ImGui::DragFloat3("Position", &camera.position.x, 0.1f);
-		ImGui::Text("Yaw: %.2f", camera.yaw);
-		ImGui::Text("Pitch: %.2f", camera.pitch);
-		ImGui::DragFloat("Move Speed", &camera.moveSpeed, 1.0f, 1.0f, 1000.0f);
-		ImGui::DragFloat("Sensitivity", &camera.mouseSensitivity, 0.01f, 0.01f, 1.0f);
-		ImGui::Separator();
-		ImGui::DragFloat("FOV", &camera.fov, 0.5f, 1.0f, 120.0f);
-		ImGui::DragFloat("Near Plane", &camera.nearPlane, 0.01f, 0.01f, 10.0f);
-		ImGui::DragFloat("Far Plane", &camera.farPlane, 10.0f, 100.0f, 50000.0f);
-		ImGui::End();
-
-		// Performance
-		ImGui::Begin("Performance");
-		ImGui::Text("FPS: %.1f", deltaTime.GetFPS());
-		ImGui::Text("Frame Time: %.3f ms", deltaTime.GetMS());
-		ImGui::Text("Actors: %d", (int)actors.size());
-		ImGui::End();
-
-		ImGui::Begin("Profiler");
-		for (const auto& [name, result] : Benchmarker::Instance().GetResults())
-		{
-			ImGui::Text("%s: %.2f us (avg: %.2f, min: %.2f, max: %.2f)",
-				name.c_str(),
-				result.lastTime,
-				result.avgTime,
-				result.minTime,
-				result.maxTime);
-		}
-		if (ImGui::Button("Reset Stats"))
-			Benchmarker::Instance().ResetAll();
-		ImGui::End();
-
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		window.SwapBuffers();
 	}
