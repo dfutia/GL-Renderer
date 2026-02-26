@@ -8,6 +8,7 @@ struct DirectionalLight
     glm::vec3 direction = glm::vec3(-0.2f, -1.0f, -0.3f);
     glm::vec3 color = glm::vec3(1.0f);
     float intensity = 1.0f;
+    float shadowBias = 0.005f;
 
     const Texture* shadowMap = nullptr;
     glm::mat4 lightSpaceMatrix = glm::mat4(1.0f);

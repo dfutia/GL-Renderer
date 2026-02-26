@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "Shader.h"
 
 Shader::Shader(const Shader& other)
@@ -53,6 +55,7 @@ void Shader::Compile()
 	glGetShaderiv(id, GL_COMPILE_STATUS, &compileStatus);
 	if (compileStatus == GL_FALSE)
 	{
+		std::cout << "Shader compile error:\n" << GetInfoLog() << std::endl;
 		throw CompileException();
 	}
 }

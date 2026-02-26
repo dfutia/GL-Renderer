@@ -54,6 +54,7 @@ public:
 	const Texture& operator=(const Texture& other);
 
 	void Image2D(const void* data, GLenum type, GLenum format, unsigned int width, unsigned int height, GLenum internalFormat);
+	void Image2DMultisample(unsigned int samples, GLenum internalFormat, unsigned int width, unsigned int height);
 
 	void SetWrapping(WrapMode wrapS);
 	void SetWrapping(WrapMode wrapS, WrapMode wrapT);
@@ -65,13 +66,16 @@ public:
 	void SetBorderColor(float r, float g, float b, float a);
 
 	void GenerateMipmaps();
+
+	bool IsMultisampled() const { return multisampled; }
+	unsigned int GetSamples() const { return samples; }
 private:
 	unsigned int id;
-
-	// moved from image class
 	int width = 0;
 	int height = 0;
 	int channels = 0;
+	bool multisampled = false;
+	unsigned int samples = 1;
 };
 
 Texture LoadTextureHighQuality(const std::string& filepath);

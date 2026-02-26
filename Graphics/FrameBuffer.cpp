@@ -2,72 +2,95 @@
 #include "Framebuffer.h"
 #include "Texture.h"
 
-#define PUSHSTATE() \
-	GLint prevFBO = 0; \
-	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
-
-#define POPSTATE() \
-	glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
-
 FrameBuffer::FrameBuffer(const FrameBuffer& other)
-	: id(other.id), width(other.width), height(other.height),
+	: id(other.id), width(other.width), height(other.height), samples(other.samples),
 	textureColor(other.textureColor), depthTexture(other.depthTexture)
 {
 }
 
-FrameBuffer::FrameBuffer(unsigned int width, unsigned int height, Type type, unsigned char colorBits, unsigned char depthBits)
-	: width(width), height(height), textureColor(nullptr), depthTexture(nullptr)
+FrameBuffer::FrameBuffer(unsigned int width, unsigned int height, Type type,
+	unsigned char colorBits, unsigned char depthBits, unsigned int samples)
+	: width(width), height(height), samples(samples),
+	textureColor(nullptr), depthTexture(nullptr)
 {
+	// Clamp samples to valid range
+	if (samples < 1) samples = 1;
+	if (samples > 1)
+	{
+		GLint maxSamples;
+		glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+		if (samples > (unsigned int)maxSamples)
+			samples = maxSamples;
+	}
+	this->samples = samples;
+
 	glGenFramebuffers(1, &id);
 	glBindFramebuffer(GL_FRAMEBUFFER, id);
 
-	// Create color texture
+	// Determine color format
+	GLenum colorInternalFormat = GL_RGBA8;
+	GLenum colorFormat = GL_RGBA;
+	GLenum colorType = GL_UNSIGNED_BYTE;
+
+	if (colorBits == 16)
+		colorInternalFormat = GL_RGBA16;
+	else if (colorBits != 32 && (type == ColorAndDepth || type == ColorOnly))
+		throw std::runtime_error("Unsupported color format for FrameBuffer");
+
+	// Determine depth format
+	GLenum depthInternalFormat = GL_DEPTH_COMPONENT24;
+	GLenum depthFormat = GL_DEPTH_COMPONENT;
+	GLenum depthType = GL_UNSIGNED_INT;
+
+	if (depthBits == 32)
+	{
+		depthInternalFormat = GL_DEPTH_COMPONENT32F;
+		depthType = GL_FLOAT;
+	}
+	else if (depthBits != 24 && (type == ColorAndDepth || type == DepthOnly))
+		throw std::runtime_error("Unsupported depth format for FrameBuffer");
+
+	// Create color attachment
 	if (type == ColorAndDepth || type == ColorOnly)
 	{
 		textureColor = new Texture();
-		GLenum colorInternalFormat;
-		GLenum colorFormat = GL_RGBA;
-		GLenum colorType = GL_UNSIGNED_BYTE;
 
-		if (colorBits == 32)
-			colorInternalFormat = GL_RGBA8;
-		else if (colorBits == 16)
-			colorInternalFormat = GL_RGBA16;
+		if (samples > 1)
+		{
+			textureColor->Image2DMultisample(samples, colorInternalFormat, width, height);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+				GL_TEXTURE_2D_MULTISAMPLE, (unsigned int)(*textureColor), 0);
+		}
 		else
-			throw std::runtime_error("Unsupported color format for FrameBuffer");
-
-		textureColor->Image2D(nullptr, colorType, colorFormat, width, height, colorInternalFormat);
-		textureColor->SetWrapping(Texture::ClampTEdge);
-		textureColor->SetFilters(Texture::Linear, Texture::Linear);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, (unsigned int)(*textureColor), 0);
+		{
+			textureColor->Image2D(nullptr, colorType, colorFormat, width, height, colorInternalFormat);
+			textureColor->SetWrapping(Texture::ClampTEdge);
+			textureColor->SetFilters(Texture::Linear, Texture::Linear);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+				GL_TEXTURE_2D, (unsigned int)(*textureColor), 0);
+		}
 	}
 
-	// Create depth texture
+	// Create depth attachment
 	if (type == ColorAndDepth || type == DepthOnly)
 	{
 		depthTexture = new Texture();
-		GLenum depthInternalFormat;
-		GLenum depthFormat = GL_DEPTH_COMPONENT;
-		GLenum depthType;
 
-		if (depthBits == 24)
+		if (samples > 1)
 		{
-			depthInternalFormat = GL_DEPTH_COMPONENT24;
-			depthType = GL_UNSIGNED_INT;
-		}
-		else if (depthBits == 32)
-		{
-			depthInternalFormat = GL_DEPTH_COMPONENT32F;
-			depthType = GL_FLOAT;
+			depthTexture->Image2DMultisample(samples, depthInternalFormat, width, height);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+				GL_TEXTURE_2D_MULTISAMPLE, (unsigned int)(*depthTexture), 0);
 		}
 		else
-			throw std::runtime_error("Unsupported depth format for FrameBuffer");
-
-		depthTexture->Image2D(nullptr, depthType, depthFormat, width, height, depthInternalFormat);
-		depthTexture->SetWrapping(Texture::ClampToBorder);
-		depthTexture->SetFilters(Texture::Nearest, Texture::Nearest);
-		depthTexture->SetBorderColor();
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, (unsigned int)(*depthTexture), 0);
+		{
+			depthTexture->Image2D(nullptr, depthType, depthFormat, width, height, depthInternalFormat);
+			depthTexture->SetWrapping(Texture::ClampToBorder);
+			depthTexture->SetFilters(Texture::Nearest, Texture::Nearest);
+			depthTexture->SetBorderColor();
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+				GL_TEXTURE_2D, (unsigned int)(*depthTexture), 0);
+		}
 	}
 
 	// For depth-only, disable color buffer
@@ -97,6 +120,7 @@ const FrameBuffer& FrameBuffer::operator=(const FrameBuffer& other)
 		id = other.id;
 		width = other.width;
 		height = other.height;
+		samples = other.samples;
 		textureColor = other.textureColor;
 		depthTexture = other.depthTexture;
 	}
@@ -105,10 +129,47 @@ const FrameBuffer& FrameBuffer::operator=(const FrameBuffer& other)
 
 const Texture& FrameBuffer::GetColorTexture() const
 {
+	if (!textureColor)
+		throw std::runtime_error("FrameBuffer has no color texture");
 	return *textureColor;
 }
 
 const Texture& FrameBuffer::GetDepthTexture() const
 {
+	if (!depthTexture)
+		throw std::runtime_error("FrameBuffer has no depth texture");
 	return *depthTexture;
+}
+
+void FrameBuffer::Resolve(FrameBuffer& target) const
+{
+	Resolve(target.id, target.width, target.height);
+}
+
+void FrameBuffer::Resolve(unsigned int targetFBO, unsigned int targetWidth, unsigned int targetHeight) const
+{
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, id);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, targetFBO);
+
+	if (textureColor)
+	{
+		glBlitFramebuffer(
+			0, 0, width, height,
+			0, 0, targetWidth, targetHeight,
+			GL_COLOR_BUFFER_BIT,
+			GL_LINEAR
+		);
+	}
+
+	if (depthTexture)
+	{
+		glBlitFramebuffer(
+			0, 0, width, height,
+			0, 0, targetWidth, targetHeight,
+			GL_DEPTH_BUFFER_BIT,
+			GL_NEAREST
+		);
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

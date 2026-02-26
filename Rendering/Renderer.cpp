@@ -7,7 +7,11 @@
 
 Renderer::Renderer(GraphicsDevice& graphics, ShaderLibrary& shaders)
     : graphics(graphics), shaders(shaders)
+    , cameraUBO(sizeof(CameraUBO))
+    , lightingUBO(sizeof(LightingUBO))
 {
+    cameraUBO.Bind(0);
+    lightingUBO.Bind(1);
 }
 
 void Renderer::SetViewport(int width, int height)
@@ -34,6 +38,9 @@ void Renderer::Render(const RenderBatch& batch)
     {
         ShadowPass(batch);
     }
+
+    UpdateCameraUBO();
+    UpdateLightingUBO();
 
     ScenePass(batch);
 
@@ -136,9 +143,6 @@ void Renderer::DrawRenderable(const Renderable& r, const glm::mat4& view,
     {
         graphics.SetUniform("modelMatrix", r.modelMatrix);
         graphics.SetUniform("normalMatrix", r.normalMatrix);
-        graphics.SetUniform("viewMatrix", view);
-        graphics.SetUniform("projectionMatrix", projection);
-        graphics.SetUniform("viewPos", camera->position);
 
         graphics.SetLight(*light);
 
@@ -160,4 +164,42 @@ void Renderer::DrawRenderable(const Renderable& r, const glm::mat4& view,
         graphics.DrawIndexed(r.indexCount);
     else
         graphics.DrawNonIndexed(r.vertexCount);
+}
+
+void Renderer::UpdateCameraUBO()
+{
+    if (!camera)
+        return;
+
+    glm::mat4 view = camera->GetViewMatrix();
+    glm::mat4 projection = camera->GetProjectionMatrix();
+
+    CameraUBO data;
+    data.view = view;
+    data.projection = projection;
+    data.viewProjection = projection * view;
+    data.position = glm::vec4(camera->position, 1.0f);
+
+    cameraUBO.SetData(&data, sizeof(data));
+}
+
+void Renderer::UpdateLightingUBO()
+{
+    if (!light)
+        return;
+
+    LightingUBO data;
+    data.direction = glm::vec4(light->direction, 0.0f);
+    data.ambient = glm::vec4(light->color * 0.1f, 1.0f);
+    data.diffuse = glm::vec4(light->color * light->intensity, 1.0f);
+    data.specular = glm::vec4(light->color * light->intensity, 1.0f);
+    data.lightSpaceMatrix = light->lightSpaceMatrix;
+    data.shadowParams = glm::vec4(
+        shadowsEnabled ? 1.0f : 0.0f,
+        0.005f,  // bias - you could add this to DirectionalLight if you want it configurable
+        0.0f,
+        0.0f
+    );
+
+    lightingUBO.SetData(&data, sizeof(data));
 }

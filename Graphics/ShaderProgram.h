@@ -26,7 +26,7 @@ public:
 
 	ShaderProgram();
 	ShaderProgram(const ShaderProgram& program);
-	ShaderProgram(const Shader& vertex);
+	ShaderProgram(const Shader& compute);
 	ShaderProgram(const Shader& vertex, const Shader& fragment);
 	ShaderProgram(const Shader& vertex, const Shader& fragment, const Shader& geometry);
 
@@ -56,11 +56,7 @@ public:
 	void SetUniform(const Uniform& uniform, const glm::mat3& value) const;
 	void SetUniform(const Uniform& uniform, const glm::mat4& value) const;
 
-	unsigned int GetUniformBlockIndex();
-	void BindUniformBlock();
-	//void BindUniformBlock();
-	size_t GetUniformBlockSize();
-	//size_t GetUniformBlockSize();
+	//void BindUniformBlock(const std::string& blockName, unsigned int bindingPoint);
 private:
 	unsigned int id;
 };

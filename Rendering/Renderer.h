@@ -5,8 +5,10 @@
 
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/FrameBuffer.h"
+#include "Graphics/UniformBuffer.h"
 #include "ShaderLibrary.h"
 #include "RenderQueue.h"
+#include "RenderData.h"
 
 class Camera;
 struct DirectionalLight;
@@ -31,6 +33,9 @@ private:
     void SkyboxPass();
     void DrawRenderable(const Renderable& r, const glm::mat4& view, const glm::mat4& projection, bool shadowPass);
 
+    void UpdateCameraUBO();
+    void UpdateLightingUBO();
+
     GraphicsDevice& graphics;
     ShaderLibrary& shaders;
 
@@ -42,6 +47,9 @@ private:
     int viewportHeight = 720;
 
     std::unique_ptr<FrameBuffer> shadowMap;
+
+    UniformBuffer cameraUBO;
+    UniformBuffer lightingUBO;
 };
 
 #endif

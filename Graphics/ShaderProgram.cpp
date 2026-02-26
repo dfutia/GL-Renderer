@@ -11,10 +11,10 @@ ShaderProgram::ShaderProgram(const ShaderProgram& program)
 	id = program.id;
 }
 
-ShaderProgram::ShaderProgram(const Shader& vertex)
+ShaderProgram::ShaderProgram(const Shader& compute)
 {
 	id = glCreateProgram();
-	Attach(vertex);
+	Attach(compute);
 	Link();
 }
 
@@ -144,3 +144,12 @@ void ShaderProgram::SetUniform(const Uniform& uniform, const glm::mat4& value) c
 {
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, &value[0][0]);
 }
+
+//void ShaderProgram::BindUniformBlock(const std::string& blockName, unsigned int bindingPoint)
+//{
+//	GLuint blockIndex = glGetUniformBlockIndex(id, blockName.c_str());
+//	if (blockIndex != GL_INVALID_INDEX)
+//	{
+//		glUniformBlockBinding(id, blockIndex, bindingPoint);
+//	}
+//}

@@ -266,3 +266,17 @@ void GraphicsDevice::DrawScreenQuad(const ScreenQuad& quad, const ShaderProgram&
 
     glEnable(GL_DEPTH_TEST);
 }
+
+void GraphicsDevice::DispatchCompute(const ShaderProgram& program,
+    unsigned int groupsX,
+    unsigned int groupsY,
+    unsigned int groupsZ)
+{
+    glUseProgram(program);
+    glDispatchCompute(groupsX, groupsY, groupsZ);
+}
+
+void GraphicsDevice::MemoryBarrier(BarrierFlags flags)
+{
+    glMemoryBarrier(flags);
+}

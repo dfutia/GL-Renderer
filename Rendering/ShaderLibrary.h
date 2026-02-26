@@ -40,6 +40,14 @@ public:
         shaders[name] = program;
     }
 
+    void LoadCompute(const std::string& name, const std::filesystem::path& computePath)
+    {
+        ShaderProgram program(
+            Shader(Shader::Compute, ReadTextFile(computePath))
+        );
+        shaders[name] = program;
+    }
+
     ShaderProgram* Get(const std::string& name)
     {
         auto it = shaders.find(name);

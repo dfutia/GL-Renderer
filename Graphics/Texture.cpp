@@ -78,14 +78,30 @@ void Texture::Image2D(const void* data, GLenum type, GLenum format, unsigned int
 	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, data);
 }
 
+void Texture::Image2DMultisample(unsigned int samples, GLenum internalFormat, unsigned int width, unsigned int height)
+{
+	this->width = width;
+	this->height = height;
+	this->multisampled = true;
+	this->samples = samples;
+
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples,
+		internalFormat, width, height, GL_TRUE);
+}
+
 void Texture::SetWrapping(WrapMode wrapS)
 {
+	if (multisampled) return;
+
 	glBindTexture(GL_TEXTURE_2D, id);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
 }
 
 void Texture::SetWrapping(WrapMode wrapS, WrapMode wrapT)
 {
+	if (multisampled) return;
+
 	glBindTexture(GL_TEXTURE_2D, id);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
@@ -93,6 +109,8 @@ void Texture::SetWrapping(WrapMode wrapS, WrapMode wrapT)
 
 void Texture::SetWrapping(WrapMode wrapS, WrapMode wrapT, WrapMode wrapR)
 {
+	if (multisampled) return;
+
 	glBindTexture(GL_TEXTURE_2D, id);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
@@ -101,6 +119,8 @@ void Texture::SetWrapping(WrapMode wrapS, WrapMode wrapT, WrapMode wrapR)
 
 void Texture::SetFilters(FilterMode minFilter, FilterMode magFilter)
 {
+	if (multisampled) return; // MSAA textures don't support filtering
+
 	glBindTexture(GL_TEXTURE_2D, id);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
@@ -108,6 +128,8 @@ void Texture::SetFilters(FilterMode minFilter, FilterMode magFilter)
 
 void Texture::SetBorderColor()
 {
+
+	if (multisampled) return;
 	glBindTexture(GL_TEXTURE_2D, id);
 	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -115,6 +137,8 @@ void Texture::SetBorderColor()
 
 void Texture::SetBorderColor(float r, float g, float b, float a)
 {
+	if (multisampled) return;
+
 	glBindTexture(GL_TEXTURE_2D, id);
 	float borderColor[] = { r, g, b, a };
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -122,6 +146,8 @@ void Texture::SetBorderColor(float r, float g, float b, float a)
 
 void Texture::GenerateMipmaps()
 {
+	if (multisampled) return;
+
 	glBindTexture(GL_TEXTURE_2D, id);
 	glGenerateMipmap(GL_TEXTURE_2D);
 }

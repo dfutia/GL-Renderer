@@ -11,9 +11,10 @@ public:
 		std::string title = "My Application";
 		int width = 1280;
 		int height = 720;
-		int glMajorVersion = 3;
+		int glMajorVersion = 4;
 		int glMinorVersion = 3;
 		int depthBits = 24;
+		int msaaSamples = 8; // 0 = disabled, 2 = 2x MSAA, 4 = 4x MSAA, 8 = 8x MSAA
 		bool vsync = true;
 	};
 

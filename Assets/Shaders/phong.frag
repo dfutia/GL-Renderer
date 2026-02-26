@@ -1,4 +1,4 @@
-#version 330 core
+#version 420 core
 
 in VS_OUT {
     vec3 FragPos;
@@ -10,6 +10,16 @@ in VS_OUT {
 } fs_in;
 
 out vec4 FragColor;
+
+layout(std140, binding = 1) uniform LightingData
+{
+    vec4 lightDirection;
+    vec4 lightAmbient;
+    vec4 lightDiffuse;
+    vec4 lightSpecular;
+    mat4 lightSpaceMatrix;
+    vec4 shadowParams;  // x = enabled, y = bias
+};
 
 uniform sampler2D diffuse;
 uniform sampler2D normal;
@@ -26,14 +36,7 @@ struct Material {
     float shininess;
 };
 
-struct Light {
-    vec3 direction;
-    vec3 color;
-    float intensity;
-};
-
 uniform Material material;
-uniform Light light;
 
 float ShadowCalculation(vec4 fragPosLightSpace)
 {
@@ -44,9 +47,8 @@ float ShadowCalculation(vec4 fragPosLightSpace)
         return 0.0;
     
     float currentDepth = projCoords.z;
-    float bias = 0.005;
+    float bias = shadowParams.y;
     
-    // PCF (samples the shadow map for smoother shadows?)
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
     
@@ -58,14 +60,13 @@ float ShadowCalculation(vec4 fragPosLightSpace)
             shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
         }
     }
-    shadow /= 25.0; // 5x5 kernel = 25 samples
+    shadow /= 25.0;
     
     return shadow;
 }
 
 void main()
 {
-    // Normal
     vec3 N;
     if (hasNormalMap == 1)
     {
@@ -77,27 +78,24 @@ void main()
         N = vec3(0.0, 0.0, 1.0);
     }
     
-    // Diffuse color
     vec3 diffuseColor = material.diffuse;
     if (hasDiffuseTexture == 1)
         diffuseColor = texture(diffuse, fs_in.TexCoords).rgb;
     
-    // Lighting
     vec3 lightDir = normalize(fs_in.TangentLightDir);
     vec3 viewDir = normalize(fs_in.TangentViewPos - fs_in.TangentFragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     
-    vec3 ambient = material.ambient * diffuseColor;
+    vec3 ambient = lightAmbient.rgb * material.ambient * diffuseColor;
     
     float diff = max(dot(N, lightDir), 0.0);
-    vec3 diffuseVec = diff * diffuseColor * light.color * light.intensity;
+    vec3 diffuseVec = diff * diffuseColor * lightDiffuse.rgb;
     
     float spec = pow(max(dot(N, halfwayDir), 0.0), material.shininess);
-    vec3 specularVec = spec * material.specular * light.color * light.intensity;
+    vec3 specularVec = spec * material.specular * lightSpecular.rgb;
     
-    // Shadow
     float shadow = 0.0;
-    if (hasShadowMap == 1)
+    if (hasShadowMap == 1 && shadowParams.x > 0.5)
         shadow = ShadowCalculation(fs_in.FragPosLightSpace);
     
     vec3 result = ambient + (1.0 - shadow) * (diffuseVec + specularVec);

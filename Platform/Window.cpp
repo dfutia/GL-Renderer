@@ -96,6 +96,12 @@ bool Window::InitializeSDL()
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, config.depthBits);
 
+	if (config.msaaSamples > 0)
+	{
+		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, config.msaaSamples);
+	}
+
 	return true;
 }
 
@@ -140,6 +146,11 @@ bool Window::InitializeGLAD()
 	{
 		std::println("Failed to initialize GLAD");
 		return false;
+	}
+
+	if (config.msaaSamples > 0)
+	{
+		glEnable(GL_MULTISAMPLE);
 	}
 
 	return true;
