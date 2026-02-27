@@ -1,158 +1,108 @@
+#include "PCH.h"
 #include "Texture.h"
-
-#define STB_IMAGE_IMPLEMENTATION
+#include "Platform/File.h"
 #include <stb_image.h>
 
-#include "Platform/File.h"
-
-
-Texture::Texture() : id(0)
+Texture::Texture()
 {
 	glGenTextures(1, &id);
 }
 
-Texture::Texture(const Texture& other) : id(other.id)
-{
-}
-
-//Texture::Texture(const Image& image, Format format) : id(0)
-//{
-//	glGenTextures(1, &id);
-//
-//	auto [width, height] = image.GetDimensions();
-//	int channels = image.GetChannels();
-//
-//	// Determine the OpenGL format based on channels
-//	GLenum glFormat;
-//	GLenum internalFormat;
-//	switch (channels)
-//	{
-//	case 1:
-//		glFormat = GL_RED;
-//		internalFormat = GL_RED;
-//		break;
-//	case 2:
-//		glFormat = GL_RG;
-//		internalFormat = GL_RG;
-//		break;
-//	case 3:
-//		glFormat = GL_RGB;
-//		internalFormat = GL_RGB;
-//		break;
-//	case 4:
-//	default:
-//		glFormat = GL_RGBA;
-//		internalFormat = GL_RGBA;
-//		break;
-//	}
-//
-//	glBindTexture(GL_TEXTURE_2D, id);
-//	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, glFormat, GL_UNSIGNED_BYTE, image.GetData());
-//
-//	// Set default wrapping and filtering
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//
-//	glGenerateMipmap(GL_TEXTURE_2D);
-//}
-
 Texture::~Texture()
 {
-	//glDeleteTextures(1, &id);
+	if (id != 0)
+		glDeleteTextures(1, &id);
 }
 
-const Texture& Texture::operator=(const Texture& other)
+Texture::Texture(Texture&& other) noexcept
+	: id(other.id), target(other.target)
+{
+	other.id = 0;
+}
+
+Texture& Texture::operator=(Texture&& other) noexcept
 {
 	if (this != &other)
 	{
+		if (id != 0)
+			glDeleteTextures(1, &id);
 		id = other.id;
+		target = other.target;
+		other.id = 0;
 	}
 	return *this;
 }
 
 void Texture::Image2D(const void* data, GLenum type, GLenum format, unsigned int width, unsigned int height, GLenum internalFormat)
 {
+	target = GL_TEXTURE_2D;
 	glBindTexture(GL_TEXTURE_2D, id);
 	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, data);
 }
 
 void Texture::Image2DMultisample(unsigned int samples, GLenum internalFormat, unsigned int width, unsigned int height)
 {
-	this->width = width;
-	this->height = height;
-	this->multisampled = true;
-	this->samples = samples;
-
+	target = GL_TEXTURE_2D_MULTISAMPLE;
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id);
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples,
-		internalFormat, width, height, GL_TRUE);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, samples, internalFormat, width, height, GL_TRUE);
 }
 
 void Texture::SetWrapping(WrapMode wrapS)
 {
-	if (multisampled) return;
-
-	glBindTexture(GL_TEXTURE_2D, id);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
+	if (target == GL_TEXTURE_2D_MULTISAMPLE) return;
+	glBindTexture(target, id);
+	glTexParameteri(target, GL_TEXTURE_WRAP_S, wrapS);
 }
 
 void Texture::SetWrapping(WrapMode wrapS, WrapMode wrapT)
 {
-	if (multisampled) return;
-
-	glBindTexture(GL_TEXTURE_2D, id);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
+	if (target == GL_TEXTURE_2D_MULTISAMPLE) return;
+	glBindTexture(target, id);
+	glTexParameteri(target, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(target, GL_TEXTURE_WRAP_T, wrapT);
 }
 
 void Texture::SetWrapping(WrapMode wrapS, WrapMode wrapT, WrapMode wrapR)
 {
-	if (multisampled) return;
-
-	glBindTexture(GL_TEXTURE_2D, id);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapS);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, wrapR);
+	if (target == GL_TEXTURE_2D_MULTISAMPLE) return;
+	glBindTexture(target, id);
+	glTexParameteri(target, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(target, GL_TEXTURE_WRAP_T, wrapT);
+	glTexParameteri(target, GL_TEXTURE_WRAP_R, wrapR);
 }
 
 void Texture::SetFilters(FilterMode minFilter, FilterMode magFilter)
 {
-	if (multisampled) return; // MSAA textures don't support filtering
-
-	glBindTexture(GL_TEXTURE_2D, id);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+	if (target == GL_TEXTURE_2D_MULTISAMPLE) return;
+	glBindTexture(target, id);
+	glTexParameteri(target, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameteri(target, GL_TEXTURE_MAG_FILTER, magFilter);
 }
 
 void Texture::SetBorderColor()
 {
-
-	if (multisampled) return;
-	glBindTexture(GL_TEXTURE_2D, id);
+	if (target == GL_TEXTURE_2D_MULTISAMPLE) return;
+	glBindTexture(target, id);
 	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, borderColor);
 }
 
 void Texture::SetBorderColor(float r, float g, float b, float a)
 {
-	if (multisampled) return;
-
-	glBindTexture(GL_TEXTURE_2D, id);
+	if (target == GL_TEXTURE_2D_MULTISAMPLE) return;
+	glBindTexture(target, id);
 	float borderColor[] = { r, g, b, a };
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, borderColor);
 }
 
 void Texture::GenerateMipmaps()
 {
-	if (multisampled) return;
-
-	glBindTexture(GL_TEXTURE_2D, id);
-	glGenerateMipmap(GL_TEXTURE_2D);
+	if (target == GL_TEXTURE_2D_MULTISAMPLE) return;
+	glBindTexture(target, id);
+	glGenerateMipmap(target);
 }
 
-Texture LoadTexture(const std::string& filepath)
+std::shared_ptr<Texture> LoadTexture(const std::string& filepath)
 {
 	std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
 	if (fileData.empty())
@@ -175,57 +125,22 @@ Texture LoadTexture(const std::string& filepath)
 	default: format = GL_RGBA; break;
 	}
 
-	Texture texture;
-	//texture.width = width;
-	//texture.height = height;
-	//texture.channels = channels;
-	texture.Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
-	texture.SetWrapping(Texture::Repeat, Texture::Repeat);
-	texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
-	texture.GenerateMipmaps();
+	auto texture = std::make_shared<Texture>();
+	texture->Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
+	texture->SetWrapping(Texture::Repeat, Texture::Repeat);
+	texture->SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
+	texture->GenerateMipmaps();
 
 	stbi_image_free(pixels);
 	return texture;
 }
 
-Texture LoadTexture(const unsigned char* data, int byteLength)
+std::shared_ptr<Texture> LoadTexture(const unsigned char* data, int byteLength)
 {
 	int width, height, channels;
-	unsigned char* pixels = stbi_load_from_memory(
-		data, byteLength,
-		&width, &height, &channels, 0);
+	unsigned char* pixels = stbi_load_from_memory(data, byteLength, &width, &height, &channels, 0);
 	if (!pixels)
 		throw std::runtime_error("Failed to decode texture from memory");
-	GLenum format;
-	switch (channels)
-	{
-	case 1: format = GL_RED;  break;
-	case 2: format = GL_RG;   break;
-	case 3: format = GL_RGB;  break;
-	default: format = GL_RGBA; break;
-	}
-	Texture texture;
-	texture.Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
-	texture.SetWrapping(Texture::Repeat, Texture::Repeat);
-	texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
-	texture.GenerateMipmaps();
-	stbi_image_free(pixels);
-	return texture;
-}
-
-Texture LoadTextureHighQuality(const std::string& filepath)
-{
-	std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
-	if (fileData.empty())
-		throw std::runtime_error("Failed to load: " + filepath);
-
-	int width, height, channels;
-	unsigned char* pixels = stbi_load_from_memory(
-		fileData.data(), static_cast<int>(fileData.size()),
-		&width, &height, &channels, 0);
-
-	if (!pixels)
-		throw std::runtime_error("Failed to decode: " + filepath);
 
 	GLenum format;
 	switch (channels)
@@ -236,27 +151,20 @@ Texture LoadTextureHighQuality(const std::string& filepath)
 	default: format = GL_RGBA; break;
 	}
 
-	Texture texture;
-	texture.Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
-	texture.SetWrapping(Texture::Repeat, Texture::Repeat);
-
-	// Use anisotropic filtering for better quality at angles
-	texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
-	texture.GenerateMipmaps();
-
-	// Enable anisotropic filtering (big quality improvement!)
-	float maxAniso;
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &maxAniso);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, maxAniso);
+	auto texture = std::make_shared<Texture>();
+	texture->Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
+	texture->SetWrapping(Texture::Repeat, Texture::Repeat);
+	texture->SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
+	texture->GenerateMipmaps();
 
 	stbi_image_free(pixels);
 	return texture;
 }
 
-Texture LoadCubemap(const std::array<std::string, 6>& faces)
+std::shared_ptr<Texture> LoadCubemap(const std::array<std::string, 6>& faces)
 {
-	Texture texture;
-	glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
+	auto texture = std::make_shared<Texture>();
+	glBindTexture(GL_TEXTURE_CUBE_MAP, *texture);
 
 	for (int i = 0; i < 6; i++)
 	{

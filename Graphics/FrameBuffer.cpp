@@ -2,16 +2,9 @@
 #include "Framebuffer.h"
 #include "Texture.h"
 
-FrameBuffer::FrameBuffer(const FrameBuffer& other)
-	: id(other.id), width(other.width), height(other.height), samples(other.samples),
-	textureColor(other.textureColor), depthTexture(other.depthTexture)
-{
-}
-
 FrameBuffer::FrameBuffer(unsigned int width, unsigned int height, Type type,
 	unsigned char colorBits, unsigned char depthBits, unsigned int samples)
-	: width(width), height(height), samples(samples),
-	textureColor(nullptr), depthTexture(nullptr)
+	: width(width), height(height), samples(samples)
 {
 	// Clamp samples to valid range
 	if (samples < 1) samples = 1;
@@ -53,7 +46,7 @@ FrameBuffer::FrameBuffer(unsigned int width, unsigned int height, Type type,
 	// Create color attachment
 	if (type == ColorAndDepth || type == ColorOnly)
 	{
-		textureColor = new Texture();
+		textureColor = std::make_unique<Texture>();
 
 		if (samples > 1)
 		{
@@ -74,7 +67,7 @@ FrameBuffer::FrameBuffer(unsigned int width, unsigned int height, Type type,
 	// Create depth attachment
 	if (type == ColorAndDepth || type == DepthOnly)
 	{
-		depthTexture = new Texture();
+		depthTexture = std::make_unique<Texture>();
 
 		if (samples > 1)
 		{
@@ -108,21 +101,38 @@ FrameBuffer::FrameBuffer(unsigned int width, unsigned int height, Type type,
 
 FrameBuffer::~FrameBuffer()
 {
-	glDeleteFramebuffers(1, &id);
-	delete textureColor;
-	delete depthTexture;
+	if (id != 0)
+		glDeleteFramebuffers(1, &id);
 }
 
-const FrameBuffer& FrameBuffer::operator=(const FrameBuffer& other)
+FrameBuffer::FrameBuffer(FrameBuffer&& other) noexcept
+	: id(other.id)
+	, width(other.width)
+	, height(other.height)
+	, samples(other.samples)
+	, textureColor(std::move(other.textureColor))
+	, depthTexture(std::move(other.depthTexture))
+{
+	other.id = 0;
+}
+
+FrameBuffer& FrameBuffer::operator=(FrameBuffer&& other) noexcept
 {
 	if (this != &other)
 	{
+		// Clean up existing resources
+		if (id != 0)
+			glDeleteFramebuffers(1, &id);
+
+		// Move from other
 		id = other.id;
 		width = other.width;
 		height = other.height;
 		samples = other.samples;
-		textureColor = other.textureColor;
-		depthTexture = other.depthTexture;
+		textureColor = std::move(other.textureColor);
+		depthTexture = std::move(other.depthTexture);
+
+		other.id = 0;
 	}
 	return *this;
 }

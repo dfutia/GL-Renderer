@@ -1,6 +1,8 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 
+#include <memory>
+
 class Texture;
 
 class FrameBuffer
@@ -13,13 +15,19 @@ public:
 		DepthOnly
 	};
 
-	FrameBuffer(const FrameBuffer& other);
 	FrameBuffer(unsigned int width, unsigned int height, Type type = ColorAndDepth,
 		unsigned char colorBits = 32, unsigned char depthBits = 24, unsigned int samples = 1);
 	~FrameBuffer();
 
+	// Delete copy
+	FrameBuffer(const FrameBuffer&) = delete;
+	FrameBuffer& operator=(const FrameBuffer&) = delete;
+
+	// Allow move
+	FrameBuffer(FrameBuffer&& other) noexcept;
+	FrameBuffer& operator=(FrameBuffer&& other) noexcept;
+
 	operator unsigned int() const { return id; }
-	const FrameBuffer& operator=(const FrameBuffer& other);
 
 	bool HasColorTexture() const { return textureColor != nullptr; }
 	bool HasDepthTexture() const { return depthTexture != nullptr; }
@@ -34,14 +42,15 @@ public:
 
 	void Resolve(FrameBuffer& target) const;
 	void Resolve(unsigned int targetFBO, unsigned int targetWidth, unsigned int targetHeight) const;
-private:
-	unsigned int id;
-	unsigned int width;
-	unsigned int height;
-	unsigned int samples;
 
-	Texture* textureColor;
-	Texture* depthTexture;
+private:
+	unsigned int id = 0;
+	unsigned int width = 0;
+	unsigned int height = 0;
+	unsigned int samples = 1;
+
+	std::unique_ptr<Texture> textureColor;
+	std::unique_ptr<Texture> depthTexture;
 };
 
 #endif

@@ -44,17 +44,25 @@ public:
 	Attribute GetAttribute(const std::string& name) const;
 	Uniform GetUniform(const std::string& name) const;
 
-	void SetUniform(const Uniform& uniform, int value) const;
-	void SetUniform(const Uniform& uniform, float value) const;
-	void SetUniform(const Uniform& uniform, const glm::vec2& value) const;
-	void SetUniform(const Uniform& uniform, const glm::vec3& value) const;
-	void SetUniform(const Uniform& uniform, const glm::vec4& value) const;
-	void SetUniform(const Uniform& uniform, const float* values, unsigned int count) const;
-	void SetUniform(const Uniform& uniform, const glm::vec2* values, unsigned int count) const;
-	void SetUniform(const Uniform& uniform, const glm::vec3* values, unsigned int count) const;
-	void SetUniform(const Uniform& uniform, const glm::vec4* values, unsigned int count) const;
-	void SetUniform(const Uniform& uniform, const glm::mat3& value) const;
-	void SetUniform(const Uniform& uniform, const glm::mat4& value) const;
+	//void SetUniform(const Uniform& uniform, int value) const;
+	//void SetUniform(const Uniform& uniform, float value) const;
+	//void SetUniform(const Uniform& uniform, const glm::vec2& value) const;
+	//void SetUniform(const Uniform& uniform, const glm::vec3& value) const;
+	//void SetUniform(const Uniform& uniform, const glm::vec4& value) const;
+	//void SetUniform(const Uniform& uniform, const float* values, unsigned int count) const;
+	//void SetUniform(const Uniform& uniform, const glm::vec2* values, unsigned int count) const;
+	//void SetUniform(const Uniform& uniform, const glm::vec3* values, unsigned int count) const;
+	//void SetUniform(const Uniform& uniform, const glm::vec4* values, unsigned int count) const;
+	//void SetUniform(const Uniform& uniform, const glm::mat3& value) const;
+	//void SetUniform(const Uniform& uniform, const glm::mat4& value) const;
+	void SetUniform(const std::string& name, int value) const;
+	void SetUniform(const std::string& name, float value) const;
+	void SetUniform(const std::string& name, const glm::vec2& value) const;
+	void SetUniform(const std::string& name, const glm::vec3& value) const;
+	void SetUniform(const std::string& name, const glm::vec4& value) const;
+	void SetUniform(const std::string& name, const glm::mat3& value) const;
+	void SetUniform(const std::string& name, const glm::mat4& value) const;
+	void SetUniform(const std::string& name, const std::vector<glm::mat4>& matrices) const;
 
 	//void BindUniformBlock(const std::string& blockName, unsigned int bindingPoint);
 private:

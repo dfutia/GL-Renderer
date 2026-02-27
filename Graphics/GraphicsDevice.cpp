@@ -1,6 +1,8 @@
 #include "PCH.h"
 #include "GraphicsDevice.h"
 #include "ShaderProgram.h"
+#include "FrameBuffer.h"
+#include "Texture.h"
 #include "Rendering/Material.h"
 #include "Rendering/Skybox.h"
 #include "Rendering/Light.h"
@@ -82,144 +84,50 @@ void GraphicsDevice::SetDepthFunc(DepthFunc func)
     glDepthFunc(glFunc);
 }
 
-void GraphicsDevice::SetLight(const DirectionalLight& light)
-{
-    SetUniform("light.direction", light.direction);
-    SetUniform("light.color", light.color);
-    SetUniform("light.intensity", light.intensity);
-    SetUniform("lightDirection", light.direction);
-    SetUniform("lightSpaceMatrix", light.lightSpaceMatrix);
-
-    if (light.shadowMap)
-    {
-        glActiveTexture(GL_TEXTURE10);
-        glBindTexture(GL_TEXTURE_2D, *light.shadowMap);
-        SetUniform("shadowMap", 10);
-        SetUniform("hasShadowMap", 1);
-    }
-    else
-    {
-        SetUniform("hasShadowMap", 0);
-    }
-}
-
 void GraphicsDevice::BindShader(const ShaderProgram& shader)
 {
-    currentShader = &shader;
     glUseProgram(shader);
 }
 
-void GraphicsDevice::SetUniform(const std::string& name, int value)
+void GraphicsDevice::BindVertexArray(const VertexArray& vao)
 {
-    if (currentShader)
-        currentShader->SetUniform(currentShader->GetUniform(name), value);
+    glBindVertexArray(vao);
 }
 
-void GraphicsDevice::SetUniform(const std::string& name, float value)
+void GraphicsDevice::BindVertexBuffer(const VertexBuffer& vbo)
 {
-    if (currentShader)
-        currentShader->SetUniform(currentShader->GetUniform(name), value);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
 }
 
-void GraphicsDevice::SetUniform(const std::string& name, const glm::vec2& value)
+void GraphicsDevice::BindIndexBuffer(const VertexBuffer& ibo)
 {
-    if (currentShader)
-        currentShader->SetUniform(currentShader->GetUniform(name), value);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 }
 
-void GraphicsDevice::SetUniform(const std::string& name, const glm::vec3& value)
-{
-    if (currentShader)
-        currentShader->SetUniform(currentShader->GetUniform(name), value);
-}
-
-void GraphicsDevice::SetUniform(const std::string& name, const glm::vec4& value)
-{
-    if (currentShader)
-        currentShader->SetUniform(currentShader->GetUniform(name), value);
-}
-
-void GraphicsDevice::SetUniform(const std::string& name, const glm::mat3& value)
-{
-    if (currentShader)
-        currentShader->SetUniform(currentShader->GetUniform(name), value);
-}
-
-void GraphicsDevice::SetUniform(const std::string& name, const glm::mat4& value)
-{
-    if (currentShader)
-        currentShader->SetUniform(currentShader->GetUniform(name), value);
-}
-
-void GraphicsDevice::SetUniform(const std::string& name, const std::vector<glm::mat4>& matrices)
-{
-    if (currentShader)
-    {
-        GLint loc = glGetUniformLocation(*currentShader, name.c_str());
-        glUniformMatrix4fv(loc, static_cast<GLsizei>(matrices.size()), GL_FALSE, &matrices[0][0][0]);
-    }
-}
-
-void GraphicsDevice::BindMaterial(const Material& material)
-{
-    if (!currentShader)
-        return;
-
-    // Bind all textures by name, auto-assigning slots
-    int slot = 0;
-    for (const auto& [name, texture] : material.GetAllTextures())
-    {
-        glActiveTexture(GL_TEXTURE0 + slot);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        SetUniform(name, slot);
-        slot++;
-    }
-
-    // Set "has texture" flags for common textures
-    SetUniform("hasDiffuseTexture", material.HasTexture(Material::DIFFUSE) ? 1 : 0);
-    SetUniform("hasNormalMap", material.HasTexture(Material::NORMAL) ? 1 : 0);
-    SetUniform("hasHeightMap", material.HasTexture(Material::HEIGHT) ? 1 : 0);
-
-    // Bind properties
-    SetUniform("material.ambient", material.properties.ambient);
-    SetUniform("material.diffuse", material.properties.diffuse);
-    SetUniform("material.specular", material.properties.specular);
-    SetUniform("material.shininess", material.properties.shininess);
-    SetUniform("material.alpha", material.properties.alpha);
-}
-
-void GraphicsDevice::BindResource(ResourceType type, unsigned int id)
-{
-    switch (type)
-    {
-    case ResourceType::SHADER_PROGRAM:
-        glUseProgram(id);
-        break;
-    case ResourceType::VERTEX_BUFFER:
-        glBindVertexArray(id);
-        break;
-    case ResourceType::INDEX_BUFFER:
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
-        break;
-    }
-}
-
-void GraphicsDevice::BindCubemap(unsigned int id, int slot)
+void GraphicsDevice::BindTexture(const Texture& texture, int slot)
 {
     glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, id);
+    glBindTexture(GL_TEXTURE_2D, texture);
 }
 
-void GraphicsDevice::BindFrameBuffer(int fbo)
+void GraphicsDevice::BindCubemap(const Texture& texture, int slot)
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
+}
+
+void GraphicsDevice::BindFramebuffer(const FrameBuffer* fbo)
+{
+    if (fbo)
+        glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
+    else
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void GraphicsDevice::DrawIndexed(unsigned int numTriangle)
 {
     glDrawElements(GL_TRIANGLES, numTriangle, GL_UNSIGNED_INT, 0);
 }
-
 
 void GraphicsDevice::DrawInstanced(unsigned int numTriangle, unsigned int numInstance)
 {
@@ -231,48 +139,8 @@ void GraphicsDevice::DrawNonIndexed(unsigned int numVertices)
     glDrawArrays(GL_TRIANGLES, 0, numVertices);
 }
 
-void GraphicsDevice::DrawSkybox(const Skybox& skybox, const glm::mat4& view, const glm::mat4& projection)
+void GraphicsDevice::DispatchCompute(unsigned int groupsX, unsigned int groupsY, unsigned int groupsZ)
 {
-    SetDepthWrite(false);
-    SetDepthFunc(DepthFunc::LessEqual);
-
-    BindShader(skybox.shader);
-
-    glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
-    SetUniform("viewMatrix", skyboxView);
-    SetUniform("projectionMatrix", projection);
-    SetUniform("skybox", 0);
-
-    BindCubemap(skybox.cubemap, 0);
-    BindResource(ResourceType::VERTEX_BUFFER, *skybox.vao);
-    DrawNonIndexed(36);
-
-    SetDepthWrite(true);
-    SetDepthFunc(DepthFunc::Less);
-}
-
-void GraphicsDevice::DrawScreenQuad(const ScreenQuad& quad, const ShaderProgram& shader, const Texture& texture)
-{
-    glDisable(GL_DEPTH_TEST);
-
-    glUseProgram(shader);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    shader.SetUniform(shader.GetUniform("uScreenTexture"), 0);
-
-    glBindVertexArray(quad.vao);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    glEnable(GL_DEPTH_TEST);
-}
-
-void GraphicsDevice::DispatchCompute(const ShaderProgram& program,
-    unsigned int groupsX,
-    unsigned int groupsY,
-    unsigned int groupsZ)
-{
-    glUseProgram(program);
     glDispatchCompute(groupsX, groupsY, groupsZ);
 }
 

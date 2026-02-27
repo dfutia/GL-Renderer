@@ -30,11 +30,6 @@ void Scene::Update(float deltaTime)
     {
         actor->Update(deltaTime);
     }
-
-    //if (physics)
-    //{
-    //    physics->Update(deltaTime);
-    //}
 }
 
 void Scene::GatherRenderables(RenderBatch& batch, const glm::vec3& cameraPosition)
@@ -60,7 +55,7 @@ void Scene::GatherRenderables(RenderBatch& batch, const glm::vec3& cameraPositio
             Renderable r;
             r.modelMatrix = transform->GetMatrix();
             r.normalMatrix = transform->GetNormalMatrix();
-            r.vao = model->mesh.vao;
+            r.vao = model->mesh.vao.get();  // Use .get()
             r.indexCount = model->mesh.IndexCount();
             r.vertexCount = model->mesh.VertexCount();
             r.material = &model->material;
@@ -78,7 +73,7 @@ void Scene::GatherRenderables(RenderBatch& batch, const glm::vec3& cameraPositio
             Renderable r;
             r.modelMatrix = transform->GetMatrix();
             r.normalMatrix = transform->GetNormalMatrix();
-            r.vao = skinned->mesh.vao;
+            r.vao = skinned->mesh.vao.get();  // Use .get()
             r.indexCount = skinned->mesh.IndexCount();
             r.vertexCount = skinned->mesh.VertexCount();
             r.material = &skinned->material;

@@ -8,24 +8,24 @@ VertexArray::VertexArray()
 	glGenVertexArrays(1, &id);
 }
 
-VertexArray::VertexArray(const VertexArray& other)
-{
-	id = other.id;
-}
+//VertexArray::VertexArray(const VertexArray& other)
+//{
+//	id = other.id;
+//}
 
 VertexArray::~VertexArray()
 {
 	glDeleteVertexArrays(1, &id);
 }
 
-const VertexArray& VertexArray::operator=(const VertexArray& other)
-{
-	if (this != &other)
-	{
-		id = other.id;
-	}
-	return *this;
-}
+//const VertexArray& VertexArray::operator=(const VertexArray& other)
+//{
+//	if (this != &other)
+//	{
+//		id = other.id;
+//	}
+//	return *this;
+//}
 
 void VertexArray::BindAttribute(const Attribute& attribute, const VertexBuffer& buffer, GLenum type, unsigned int count, unsigned int stride, intptr_t offset)
 {

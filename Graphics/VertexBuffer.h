@@ -67,20 +67,37 @@ public:
 	};
 
 	VertexBuffer();
-	VertexBuffer(const VertexBuffer& other);
 	VertexBuffer(const void* data, size_t length, BufferUsage usage);
 	VertexBuffer(const Mesh& mesh, BufferUsage usage, std::function<void(const Vertex& v, VertexDataBuffer& data)> f);
 
 	~VertexBuffer();
 
+	// Delete copy operations - use shared_ptr instead
+	VertexBuffer(const VertexBuffer&) = delete;
+	VertexBuffer& operator=(const VertexBuffer&) = delete;
+
+	// Allow move operations
+	VertexBuffer(VertexBuffer&& other) noexcept : id(other.id) { other.id = 0; }
+	VertexBuffer& operator=(VertexBuffer&& other) noexcept
+	{
+		if (this != &other)
+		{
+			if (id != 0)
+				glDeleteBuffers(1, &id);
+			id = other.id;
+			other.id = 0;
+		}
+		return *this;
+	}
+
 	operator unsigned int() const { return id; }
-	const VertexBuffer& operator=(const VertexBuffer& other);
 
 	void Data(const void* data, size_t length, BufferUsage usage);
 	void SubData(const void* data, size_t offset, size_t length);
 	void GetSubData(void* data, size_t offset, size_t length);
 private:
-	unsigned int id;
+	unsigned int id = 0;
 };
+
 
 #endif 

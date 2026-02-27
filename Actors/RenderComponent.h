@@ -42,7 +42,7 @@ public:
     void SetUniform(const std::string& name, const glm::mat3& value) { uniformsMat3[name] = value; }
     void SetUniform(const std::string& name, const glm::mat4& value) { uniformsMat4[name] = value; }
 
-    void ApplyUniforms(GraphicsDevice& graphics) const;
+    void ApplyUniforms(ShaderProgram& shader) const;
 
     // Inspector support
     const char* GetName() const override { return "Render"; }

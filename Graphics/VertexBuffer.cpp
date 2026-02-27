@@ -11,10 +11,10 @@ VertexBuffer::VertexBuffer()
 	glGenBuffers(1, &id);
 }
 
-VertexBuffer::VertexBuffer(const VertexBuffer& other)
-{
-	id = other.id;
-}
+//VertexBuffer::VertexBuffer(const VertexBuffer& other)
+//{
+//	id = other.id;
+//}
 
 VertexBuffer::VertexBuffer(const void* data, size_t length, BufferUsage usage)
 {
@@ -42,14 +42,14 @@ VertexBuffer::~VertexBuffer()
 	glDeleteBuffers(1, &id);
 }
 
-const VertexBuffer& VertexBuffer::operator=(const VertexBuffer& other)
-{
-	if (this != &other)
-	{
-		id = other.id;
-	}
-	return *this;
-}
+//const VertexBuffer& VertexBuffer::operator=(const VertexBuffer& other)
+//{
+//	if (this != &other)
+//	{
+//		id = other.id;
+//	}
+//	return *this;
+//}
 
 void VertexBuffer::Data(const void* data, size_t length, BufferUsage usage)
 {

@@ -20,36 +20,36 @@ static glm::mat4 ToGlm(const aiMatrix4x4& m)
     );
 }
 
-static Texture LoadEmbeddedTexture(const aiTexture* aiTex)
+static std::shared_ptr<Texture> LoadEmbeddedTexture(const aiTexture* aiTex)
 {
     if (aiTex->mHeight == 0)
     {
         // Compressed (PNG/JPG) — mWidth is the byte count
-        return LoadTexture(reinterpret_cast<const unsigned char*>(aiTex->pcData),aiTex->mWidth);
+        return LoadTexture(reinterpret_cast<const unsigned char*>(aiTex->pcData), aiTex->mWidth);
     }
     else
     {
         // Uncompressed ARGB8888 — raw pixel data
-        Texture texture;
-        texture.Image2D(aiTex->pcData, GL_UNSIGNED_BYTE, GL_RGBA,
+        auto texture = std::make_shared<Texture>();
+        texture->Image2D(aiTex->pcData, GL_UNSIGNED_BYTE, GL_RGBA,
             aiTex->mWidth, aiTex->mHeight, GL_RGBA);
-        texture.SetWrapping(Texture::Repeat, Texture::Repeat);
-        texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
-        texture.GenerateMipmaps();
+        texture->SetWrapping(Texture::Repeat, Texture::Repeat);
+        texture->SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
+        texture->GenerateMipmaps();
         return texture;
     }
 }
 
-static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh* mesh, aiTextureType type)
+static std::shared_ptr<Texture> ExtractTexture(const aiScene* scene, const aiMesh* mesh, aiTextureType type)
 {
     if (mesh->mMaterialIndex >= scene->mNumMaterials)
-        return std::nullopt;
+        return nullptr;
 
     aiMaterial* aiMat = scene->mMaterials[mesh->mMaterialIndex];
 
     aiString texPath;
     if (aiMat->GetTexture(type, 0, &texPath) != AI_SUCCESS)
-        return std::nullopt;
+        return nullptr;
 
     std::string path(texPath.C_Str());
 
@@ -59,7 +59,7 @@ static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh*
         int texIndex = std::atoi(path.c_str() + 1);
         if (texIndex >= 0 && texIndex < (int)scene->mNumTextures)
             return LoadEmbeddedTexture(scene->mTextures[texIndex]);
-        return std::nullopt;
+        return nullptr;
     }
 
     // Embedded texture referenced by filename
@@ -84,7 +84,7 @@ static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh*
     catch (...)
     {
         std::println("Warning: could not load texture '{}'", path);
-        return std::nullopt;
+        return nullptr;
     }
 }
 
@@ -164,23 +164,22 @@ Model LoadModel(const std::string& filepath)
     }
 
     // --- Build VAO ---
-    Mesh* mesh = new Mesh();
-    mesh->vertices = vertices;
-    mesh->vbo = new VertexBuffer(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
-    mesh->vao = new VertexArray();
+    Mesh mesh;
+    mesh.vertices = vertices;
+    mesh.vbo = std::make_shared<VertexBuffer>(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
+    mesh.vao = std::make_shared<VertexArray>();
 
-    unsigned int stride = sizeof(float) * 11; // 3 + 3 + 2 + 3
-    mesh->vao->BindAttribute(0, *mesh->vbo, GL_FLOAT, 3, stride, 0);
-    mesh->vao->BindAttribute(1, *mesh->vbo, GL_FLOAT, 3, stride, sizeof(float) * 3);
-    mesh->vao->BindAttribute(2, *mesh->vbo, GL_FLOAT, 2, stride, sizeof(float) * 6);
-    mesh->vao->BindAttribute(3, *mesh->vbo, GL_FLOAT, 3, stride, sizeof(float) * 8);
+    unsigned int stride = sizeof(float) * 11;
+    mesh.vao->BindAttribute(0, *mesh.vbo, GL_FLOAT, 3, stride, 0);
+    mesh.vao->BindAttribute(1, *mesh.vbo, GL_FLOAT, 3, stride, sizeof(float) * 3);
+    mesh.vao->BindAttribute(2, *mesh.vbo, GL_FLOAT, 2, stride, sizeof(float) * 6);
+    mesh.vao->BindAttribute(3, *mesh.vbo, GL_FLOAT, 3, stride, sizeof(float) * 8);
 
     // --- Build material ---
     aiMaterial* aiMat = scene->mMaterials[aiM->mMaterialIndex];
 
     Material material = Material::CreateDefault();
 
-    // Extract material properties from assimp
     aiColor3D color;
     float value;
 
@@ -196,25 +195,24 @@ Model LoadModel(const std::string& filepath)
     if (aiMat->Get(AI_MATKEY_SHININESS, value) == AI_SUCCESS)
         material.properties.shininess = value;
 
-    // PBR properties (if using glTF or other PBR formats)
     if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
         material.properties.metallic = value;
 
     if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
         material.properties.roughness = value;
 
-    // Textures - use aiMat for these too
+    // Textures - now using shared_ptr
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
-        material.SetTexture(Material::DIFFUSE, *texture);
+        material.SetTexture(Material::DIFFUSE, texture);
 
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
-        material.SetTexture(Material::SPECULAR, *texture);
+        material.SetTexture(Material::SPECULAR, texture);
 
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_NORMALS))
-        material.SetTexture(Material::NORMAL, *texture);
+        material.SetTexture(Material::NORMAL, texture);
 
     Model result;
-    result.mesh = *mesh;
+    result.mesh = mesh;
     result.material = material;
     return result;
 }
@@ -335,6 +333,7 @@ std::vector<Animation> ExtractAnimations(const aiScene* scene)
     return animations;
 }
 
+
 SkinnedModel LoadSkinnedModel(const std::string& filepath)
 {
     std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
@@ -434,32 +433,31 @@ SkinnedModel LoadSkinnedModel(const std::string& filepath)
     }
 
     // Build VAO
-    SkinnedMesh* mesh = new SkinnedMesh();
-    mesh->vertices = vertices;
-    mesh->indices = indices;
-    mesh->skeleton = skeleton;
-    mesh->vbo = new VertexBuffer(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
-    mesh->vao = new VertexArray();
+    SkinnedMesh mesh;
+    mesh.vertices = vertices;
+    mesh.indices = indices;
+    mesh.skeleton = skeleton;
+    mesh.vbo = std::make_shared<VertexBuffer>(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
+    mesh.vao = std::make_shared<VertexArray>();
 
     unsigned int stride = sizeof(SkinnedVertex);
-    mesh->vao->BindAttribute(0, *mesh->vbo, GL_FLOAT, 3, stride, offsetof(SkinnedVertex, position));
-    mesh->vao->BindAttribute(1, *mesh->vbo, GL_FLOAT, 3, stride, offsetof(SkinnedVertex, normal));
-    mesh->vao->BindAttribute(2, *mesh->vbo, GL_FLOAT, 2, stride, offsetof(SkinnedVertex, texCoords));
-    mesh->vao->BindIntAttribute(3, *mesh->vbo, GL_INT, 4, stride, offsetof(SkinnedVertex, boneIDs));
-    mesh->vao->BindAttribute(4, *mesh->vbo, GL_FLOAT, 4, stride, offsetof(SkinnedVertex, boneWeights));
-    mesh->vao->BindAttribute(5, *mesh->vbo, GL_FLOAT, 3, stride, offsetof(SkinnedVertex, tangent));
+    mesh.vao->BindAttribute(0, *mesh.vbo, GL_FLOAT, 3, stride, offsetof(SkinnedVertex, position));
+    mesh.vao->BindAttribute(1, *mesh.vbo, GL_FLOAT, 3, stride, offsetof(SkinnedVertex, normal));
+    mesh.vao->BindAttribute(2, *mesh.vbo, GL_FLOAT, 2, stride, offsetof(SkinnedVertex, texCoords));
+    mesh.vao->BindIntAttribute(3, *mesh.vbo, GL_INT, 4, stride, offsetof(SkinnedVertex, boneIDs));
+    mesh.vao->BindAttribute(4, *mesh.vbo, GL_FLOAT, 4, stride, offsetof(SkinnedVertex, boneWeights));
+    mesh.vao->BindAttribute(5, *mesh.vbo, GL_FLOAT, 3, stride, offsetof(SkinnedVertex, tangent));
 
     // Bind index buffer
-    VertexBuffer* ebo = new VertexBuffer();
-    ebo->Data(indices.data(), indices.size() * sizeof(unsigned int), VertexBuffer::StaticDraw);
-    mesh->vao->BindElemenets(*ebo);
+    mesh.ebo = std::make_shared<VertexBuffer>();
+    mesh.ebo->Data(indices.data(), indices.size() * sizeof(unsigned int), VertexBuffer::StaticDraw);
+    mesh.vao->BindElemenets(*mesh.ebo);
 
     // Build material
     aiMaterial* aiMat = scene->mMaterials[aiM->mMaterialIndex];
 
     Material material = Material::CreateDefault();
 
-    // Extract material properties from assimp
     aiColor3D color;
     float value;
 
@@ -475,25 +473,24 @@ SkinnedModel LoadSkinnedModel(const std::string& filepath)
     if (aiMat->Get(AI_MATKEY_SHININESS, value) == AI_SUCCESS)
         material.properties.shininess = value;
 
-    // PBR properties (if using glTF or other PBR formats)
     if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
         material.properties.metallic = value;
 
     if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
         material.properties.roughness = value;
 
-    // Textures - use aiMat for these too
+    // Textures - now using shared_ptr
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
-        material.SetTexture(Material::DIFFUSE, *texture);
+        material.SetTexture(Material::DIFFUSE, texture);
 
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
-        material.SetTexture(Material::SPECULAR, *texture);
+        material.SetTexture(Material::SPECULAR, texture);
 
     if (auto texture = ExtractTexture(scene, aiM, aiTextureType_NORMALS))
-        material.SetTexture(Material::NORMAL, *texture);
+        material.SetTexture(Material::NORMAL, texture);
 
     SkinnedModel result;
-    result.mesh = *mesh;
+    result.mesh = mesh;
     result.material = material;
     return result;
 }

@@ -3,27 +3,41 @@
 
 #include "Camera.h"
 #include "Light.h"
+#include "Material.h"
 #include "Skybox.h"
 
-Renderer::Renderer(GraphicsDevice& graphics, ShaderLibrary& shaders)
-    : graphics(graphics), shaders(shaders)
+Renderer::Renderer(GraphicsDevice& device, ShaderLibrary& shaders,
+    unsigned int width, unsigned int height, unsigned int msaaSamples)
+    : device(device)
+    , shaders(shaders)
+    , viewportWidth(width)
+    , viewportHeight(height)
+    , msaaSamples(msaaSamples)
+    , msaaFBO(width, height, FrameBuffer::ColorAndDepth, 32, 24, msaaSamples)
+    , resolveFBO(width, height, FrameBuffer::ColorOnly, 32, 0, 1)
     , cameraUBO(sizeof(CameraUBO))
     , lightingUBO(sizeof(LightingUBO))
+    , screenQuad(CreateScreenQuad())
 {
     cameraUBO.Bind(0);
     lightingUBO.Bind(1);
 }
 
-void Renderer::SetViewport(int width, int height)
+void Renderer::SetViewport(unsigned int width, unsigned int height)
 {
     viewportWidth = width;
     viewportHeight = height;
+
+    msaaFBO = FrameBuffer(width, height, FrameBuffer::ColorAndDepth, 32, 24, msaaSamples);
+    resolveFBO = FrameBuffer(width, height, FrameBuffer::ColorOnly, 32, 0, 1);
 }
 
 void Renderer::Render(const RenderBatch& batch)
 {
     if (!camera || !light)
         return;
+
+    resolved = false;
 
     if (shadowsEnabled && !shadowMap)
     {
@@ -35,19 +49,47 @@ void Renderer::Render(const RenderBatch& batch)
     }
 
     if (shadowsEnabled)
-    {
         ShadowPass(batch);
-    }
 
     UpdateCameraUBO();
     UpdateLightingUBO();
 
+    device.BindFramebuffer(nullptr);
+    device.SetViewport(0, 0, viewportWidth, viewportHeight);
+    device.SetClearColor(0.0f, 0.0f, 0.0f);
+    device.Clear(true, true, false);
+
     ScenePass(batch);
 
     if (skybox)
-    {
         SkyboxPass();
+}
+
+const Texture& Renderer::GetResult()
+{
+    if (msaaSamples > 1 && !resolved)
+    {
+        msaaFBO.Resolve(resolveFBO);
+        resolved = true;
     }
+
+    return msaaSamples > 1
+        ? resolveFBO.GetColorTexture()
+        : msaaFBO.GetColorTexture();
+}
+
+void Renderer::Blit(const Texture& source, ShaderProgram& shader)
+{
+    device.BindFramebuffer(nullptr);
+    device.SetViewport(0, 0, viewportWidth, viewportHeight);
+    DrawScreenQuad(screenQuad, shader, source);
+}
+
+void Renderer::Blit(const Texture& source, ShaderProgram& shader, FrameBuffer& target)
+{
+    device.BindFramebuffer(&target);
+    device.SetViewport(0, 0, target.GetWidth(), target.GetHeight());
+    DrawScreenQuad(screenQuad, shader, source);
 }
 
 void Renderer::ShadowPass(const RenderBatch& batch)
@@ -63,10 +105,10 @@ void Renderer::ShadowPass(const RenderBatch& batch)
     light->lightSpaceMatrix = lightProjection * lightView;
     light->shadowMap = &shadowMap->GetDepthTexture();
 
-    graphics.SetViewport(0, 0, light->shadowWidth, light->shadowHeight);
-    graphics.BindFrameBuffer(*shadowMap);
-    graphics.Clear(false, true, false);
-    graphics.SetDepthTest(true);
+    device.SetViewport(0, 0, light->shadowWidth, light->shadowHeight);
+    device.BindFramebuffer(shadowMap.get());
+    device.Clear(false, true, false);
+    device.SetDepthTest(true);
 
     for (const auto& r : batch.GetRenderables())
     {
@@ -81,11 +123,7 @@ void Renderer::ShadowPass(const RenderBatch& batch)
 
 void Renderer::ScenePass(const RenderBatch& batch)
 {
-    graphics.BindFrameBuffer(0);
-    graphics.SetViewport(0, 0, viewportWidth, viewportHeight);
-    graphics.SetClearColor(0.0f, 0.0f, 0.0f);
-    graphics.Clear(true, true, false);
-    graphics.SetDepthTest(true);
+    device.SetDepthTest(true);
 
     glm::mat4 view = camera->GetViewMatrix();
     glm::mat4 projection = camera->GetProjectionMatrix();
@@ -100,28 +138,28 @@ void Renderer::ScenePass(const RenderBatch& batch)
 
             if (currentQueue >= RenderQueue::Transparent)
             {
-                graphics.SetBlending(true);
-                graphics.SetDepthWrite(false);
+                device.SetBlending(true);
+                device.SetDepthWrite(false);
             }
             else
             {
-                graphics.SetBlending(false);
-                graphics.SetDepthWrite(true);
+                device.SetBlending(false);
+                device.SetDepthWrite(true);
             }
         }
 
         DrawRenderable(r, view, projection, false);
     }
 
-    graphics.SetBlending(false);
-    graphics.SetDepthWrite(true);
+    device.SetBlending(false);
+    device.SetDepthWrite(true);
 }
 
 void Renderer::SkyboxPass()
 {
     glm::mat4 view = camera->GetViewMatrix();
     glm::mat4 projection = camera->GetProjectionMatrix();
-    graphics.DrawSkybox(*skybox, view, projection);
+    DrawSkybox(*skybox, view, projection);
 }
 
 void Renderer::DrawRenderable(const Renderable& r, const glm::mat4& view,
@@ -132,38 +170,38 @@ void Renderer::DrawRenderable(const Renderable& r, const glm::mat4& view,
     if (!shader)
         return;
 
-    graphics.BindShader(*shader);
+    device.BindShader(*shader);
 
     if (shadowPass)
     {
-        graphics.SetUniform("lightSpaceMatrix", light->lightSpaceMatrix);
-        graphics.SetUniform("modelMatrix", r.modelMatrix);
+        shader->SetUniform("lightSpaceMatrix", light->lightSpaceMatrix);
+        shader->SetUniform("modelMatrix", r.modelMatrix);
     }
     else
     {
-        graphics.SetUniform("modelMatrix", r.modelMatrix);
-        graphics.SetUniform("normalMatrix", r.normalMatrix);
+        shader->SetUniform("modelMatrix", r.modelMatrix);
+        shader->SetUniform("normalMatrix", r.normalMatrix);
 
-        graphics.SetLight(*light);
+        ApplyLight(*shader, *light);
 
         if (r.material)
-            graphics.BindMaterial(*r.material);
+            ApplyMaterial(*shader, *r.material);
     }
 
     if (r.boneMatrices && !r.boneMatrices->empty())
     {
         for (size_t i = 0; i < r.boneMatrices->size(); i++)
         {
-            graphics.SetUniform("bones[" + std::to_string(i) + "]", (*r.boneMatrices)[i]);
+            shader->SetUniform("bones[" + std::to_string(i) + "]", (*r.boneMatrices)[i]);
         }
     }
 
-    graphics.BindResource(ResourceType::VERTEX_BUFFER, *r.vao);
+    device.BindVertexArray(*r.vao);
 
     if (r.indexCount > 0)
-        graphics.DrawIndexed(r.indexCount);
+        device.DrawIndexed(r.indexCount);
     else
-        graphics.DrawNonIndexed(r.vertexCount);
+        device.DrawNonIndexed(r.vertexCount);
 }
 
 void Renderer::UpdateCameraUBO()
@@ -196,10 +234,81 @@ void Renderer::UpdateLightingUBO()
     data.lightSpaceMatrix = light->lightSpaceMatrix;
     data.shadowParams = glm::vec4(
         shadowsEnabled ? 1.0f : 0.0f,
-        0.005f,  // bias - you could add this to DirectionalLight if you want it configurable
+        0.005f,
         0.0f,
         0.0f
     );
 
     lightingUBO.SetData(&data, sizeof(data));
+}
+
+void Renderer::DrawSkybox(const Skybox& skybox, const glm::mat4& view, const glm::mat4& projection)
+{
+    device.SetDepthWrite(false);
+    device.SetDepthFunc(DepthFunc::LessEqual);
+
+    device.BindShader(skybox.shader);
+    skybox.shader.SetUniform("viewMatrix", glm::mat4(glm::mat3(view)));
+    skybox.shader.SetUniform("projectionMatrix", projection);
+    skybox.shader.SetUniform("skybox", 0);
+
+    device.BindCubemap(*skybox.cubemap, 0);  // Dereference the shared_ptr
+    device.BindVertexArray(*skybox.vao);
+    device.DrawNonIndexed(36);
+
+    device.SetDepthWrite(true);
+    device.SetDepthFunc(DepthFunc::Less);
+}
+void Renderer::DrawScreenQuad(const ScreenQuad& quad, const ShaderProgram& shader, const Texture& texture)
+{
+    device.SetDepthTest(false);
+
+    device.BindShader(shader);
+    shader.SetUniform("uScreenTexture", 0);
+
+    device.BindTexture(texture, 0);
+    device.BindVertexArray(quad.vao);
+    device.DrawNonIndexed(6);
+
+    device.SetDepthTest(true);
+}
+
+void Renderer::ApplyMaterial(const ShaderProgram& shader, const Material& material)
+{
+    int slot = 0;
+    for (const auto& [name, texture] : material.GetAllTextures())
+    {
+        device.BindTexture(*texture, slot);  // Dereference the shared_ptr
+        shader.SetUniform(name, slot);
+        slot++;
+    }
+
+    shader.SetUniform("hasDiffuseTexture", material.HasTexture(Material::DIFFUSE) ? 1 : 0);
+    shader.SetUniform("hasNormalMap", material.HasTexture(Material::NORMAL) ? 1 : 0);
+    shader.SetUniform("hasHeightMap", material.HasTexture(Material::HEIGHT) ? 1 : 0);
+
+    shader.SetUniform("material.ambient", material.properties.ambient);
+    shader.SetUniform("material.diffuse", material.properties.diffuse);
+    shader.SetUniform("material.specular", material.properties.specular);
+    shader.SetUniform("material.shininess", material.properties.shininess);
+    shader.SetUniform("material.alpha", material.properties.alpha);
+}
+
+void Renderer::ApplyLight(const ShaderProgram& shader, const DirectionalLight& light)
+{
+    shader.SetUniform("light.direction", light.direction);
+    shader.SetUniform("light.ambient", light.color * 0.1f);
+    shader.SetUniform("light.diffuse", light.color * light.intensity);
+    shader.SetUniform("light.specular", light.color * light.intensity);
+
+    if (light.shadowMap)
+    {
+		device.BindTexture(*light.shadowMap, 10);
+        shader.SetUniform("shadowMap", 10);
+        shader.SetUniform("hasShadowMap", 1);
+    }
+    else
+    {
+        shader.SetUniform("hasShadowMap", 0);
+    }
 }

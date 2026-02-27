@@ -107,13 +107,13 @@ int main(int argc, char* argv[])
 
 	GraphicsDevice graphics;
 	ShaderLibrary shaders;
-	Renderer renderer(graphics, shaders);
+	Renderer renderer(graphics, shaders, 1280, 720, 8);
 	PhysicsWorld physics;
 	Scene scene;
 	scene.physics = &physics;
 
-	Texture woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
-	Texture containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
+	auto woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
+	auto containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
 
 	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
 	SkinnedModel mannequinSkinned = LoadSkinnedModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx").string());
@@ -125,6 +125,7 @@ int main(int argc, char* argv[])
 	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong.frag", { "SKINNED" });
 	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
 	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag", { "SKINNED" });
+	shaders.Load("blit", GetMediaPath() / "Shaders/blit.vert", GetMediaPath() / "Shaders/blit.frag");
 
 	// Camera
 	Camera camera;
@@ -260,98 +261,98 @@ int main(int argc, char* argv[])
 
 		scene.GatherRenderables(batch, camera.position);
 		renderer.Render(batch);
+		//renderer.Blit(renderer.GetResult(), *shaders.Get("blit"));
+		//batch.Clear();
 
 		// =====================
 		// Imgui
 		// =====================
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+
+		// Actor Hierarchy
+		ImGui::Begin("Actors");
+		static Actor* selectedActor = nullptr;
+		int index = 0;
+		scene.ForEachActor([&](Actor* actor) {
+			std::string label = "Actor " + std::to_string(index);
+			if (ImGui::Selectable(label.c_str(), selectedActor == actor))
+				selectedActor = actor;
+			index++;
+			});
+		ImGui::End();
+
+		// Inspector
+		ImGui::Begin("Inspector");
+		if (selectedActor)
 		{
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplSDL2_NewFrame();
-			ImGui::NewFrame();
-
-			// Actor Hierarchy
-			ImGui::Begin("Actors");
-			static Actor* selectedActor = nullptr;
-			int index = 0;
-			scene.ForEachActor([&](Actor* actor) {
-				std::string label = "Actor " + std::to_string(index);
-				if (ImGui::Selectable(label.c_str(), selectedActor == actor))
-					selectedActor = actor;
-				index++;
-				});
-			ImGui::End();
-
-			// Inspector
-			ImGui::Begin("Inspector");
-			if (selectedActor)
-			{
-				selectedActor->ForEachComponent([](ActorComponent* component)
+			selectedActor->ForEachComponent([](ActorComponent* component)
+				{
+					if (ImGui::CollapsingHeader(component->GetName(), ImGuiTreeNodeFlags_DefaultOpen))
 					{
-						if (ImGui::CollapsingHeader(component->GetName(), ImGuiTreeNodeFlags_DefaultOpen))
-						{
-							DrawPropertyInspector(component);
-						}
-					});
-			}
-			else
-			{
-				ImGui::Text("No actor selected");
-			}
-			ImGui::End();
-
-			// Light
-			ImGui::Begin("Light");
-			ImGui::DragFloat3("Direction", &light.direction.x, 0.01f);
-			if (ImGui::Button("Normalize"))
-				light.direction = glm::normalize(light.direction);
-			ImGui::ColorEdit3("Color", &light.color.x);
-			ImGui::DragFloat("Intensity", &light.intensity, 0.01f, 0.0f, 10.0f);
-
-			if (ImGui::CollapsingHeader("Shadows"))
-			{
-				ImGui::DragFloat("Near Plane", &light.shadowNearPlane, 0.1f, 0.1f, 100.0f);
-				ImGui::DragFloat("Far Plane", &light.shadowFarPlane, 1.0f, 100.0f, 5000.0f);
-				ImGui::DragFloat("Ortho Size", &light.shadowOrthoSize, 1.0f, 10.0f, 2000.0f);
-				ImGui::DragFloat("Distance", &light.shadowDistance, 1.0f, 100.0f, 2000.0f);
-			}
-			ImGui::End();
-
-			// Camera
-			ImGui::Begin("Camera");
-			ImGui::DragFloat3("Position", &camera.position.x, 0.1f);
-			ImGui::Text("Yaw: %.2f", camera.yaw);
-			ImGui::Text("Pitch: %.2f", camera.pitch);
-			ImGui::DragFloat("Move Speed", &camera.moveSpeed, 1.0f, 1.0f, 1000.0f);
-			ImGui::DragFloat("Sensitivity", &camera.mouseSensitivity, 0.01f, 0.01f, 1.0f);
-			ImGui::Separator();
-			ImGui::DragFloat("FOV", &camera.fov, 0.5f, 1.0f, 120.0f);
-			ImGui::DragFloat("Near Plane", &camera.nearPlane, 0.01f, 0.01f, 10.0f);
-			ImGui::DragFloat("Far Plane", &camera.farPlane, 10.0f, 100.0f, 50000.0f);
-			ImGui::End();
-
-			// Performance
-			ImGui::Begin("Performance");
-			ImGui::Text("FPS: %.1f", deltaTime.GetFPS());
-			ImGui::Text("Frame Time: %.3f ms", deltaTime.GetMS());
-			ImGui::End();
-
-			ImGui::Begin("Profiler");
-			for (const auto& [name, result] : Benchmarker::Instance().GetResults())
-			{
-				ImGui::Text("%s: %.2f us (avg: %.2f, min: %.2f, max: %.2f)",
-					name.c_str(),
-					result.lastTime,
-					result.avgTime,
-					result.minTime,
-					result.maxTime);
-			}
-			if (ImGui::Button("Reset Stats"))
-				Benchmarker::Instance().ResetAll();
-			ImGui::End();
-
-			ImGui::Render();
-			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+						DrawPropertyInspector(component);
+					}
+				});
 		}
+		else
+		{
+			ImGui::Text("No actor selected");
+		}
+		ImGui::End();
+
+		// Light
+		ImGui::Begin("Light");
+		ImGui::DragFloat3("Direction", &light.direction.x, 0.01f);
+		if (ImGui::Button("Normalize"))
+			light.direction = glm::normalize(light.direction);
+		ImGui::ColorEdit3("Color", &light.color.x);
+		ImGui::DragFloat("Intensity", &light.intensity, 0.01f, 0.0f, 10.0f);
+
+		if (ImGui::CollapsingHeader("Shadows"))
+		{
+			ImGui::DragFloat("Near Plane", &light.shadowNearPlane, 0.1f, 0.1f, 100.0f);
+			ImGui::DragFloat("Far Plane", &light.shadowFarPlane, 1.0f, 100.0f, 5000.0f);
+			ImGui::DragFloat("Ortho Size", &light.shadowOrthoSize, 1.0f, 10.0f, 2000.0f);
+			ImGui::DragFloat("Distance", &light.shadowDistance, 1.0f, 100.0f, 2000.0f);
+		}
+		ImGui::End();
+
+		// Camera
+		ImGui::Begin("Camera");
+		ImGui::DragFloat3("Position", &camera.position.x, 0.1f);
+		ImGui::Text("Yaw: %.2f", camera.yaw);
+		ImGui::Text("Pitch: %.2f", camera.pitch);
+		ImGui::DragFloat("Move Speed", &camera.moveSpeed, 1.0f, 1.0f, 1000.0f);
+		ImGui::DragFloat("Sensitivity", &camera.mouseSensitivity, 0.01f, 0.01f, 1.0f);
+		ImGui::Separator();
+		ImGui::DragFloat("FOV", &camera.fov, 0.5f, 1.0f, 120.0f);
+		ImGui::DragFloat("Near Plane", &camera.nearPlane, 0.01f, 0.01f, 10.0f);
+		ImGui::DragFloat("Far Plane", &camera.farPlane, 10.0f, 100.0f, 50000.0f);
+		ImGui::End();
+
+		// Performance
+		ImGui::Begin("Performance");
+		ImGui::Text("FPS: %.1f", deltaTime.GetFPS());
+		ImGui::Text("Frame Time: %.3f ms", deltaTime.GetMS());
+		ImGui::End();
+
+		ImGui::Begin("Profiler");
+		for (const auto& [name, result] : Benchmarker::Instance().GetResults())
+		{
+			ImGui::Text("%s: %.2f us (avg: %.2f, min: %.2f, max: %.2f)",
+				name.c_str(),
+				result.lastTime,
+				result.avgTime,
+				result.minTime,
+				result.maxTime);
+		}
+		if (ImGui::Button("Reset Stats"))
+			Benchmarker::Instance().ResetAll();
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		window.SwapBuffers();
 	}

@@ -1,41 +1,30 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
 
+#include <memory>
+
 class Texture
 {
 public:
-	enum Format
-	{
-		RGB = 3,
-		RGBA = 4,
-		Grayscale = 1,
-		GrayscaleAlpha = 2
-	};
+	enum Format { RGB = 3, RGBA = 4, Grayscale = 1, GrayscaleAlpha = 2 };
 
 	enum DataType
 	{
-		UnsignedByte = GL_UNSIGNED_BYTE,
-		Byte = GL_BYTE,
-		UnsignedShort = GL_UNSIGNED_SHORT,
-		Short = GL_SHORT,
-		UnsignedInt = GL_UNSIGNED_INT,
-		Int = GL_INT,
-		HalfFloat = GL_HALF_FLOAT,
-		Float = GL_FLOAT
+		UnsignedByte = GL_UNSIGNED_BYTE, Byte = GL_BYTE,
+		UnsignedShort = GL_UNSIGNED_SHORT, Short = GL_SHORT,
+		UnsignedInt = GL_UNSIGNED_INT, Int = GL_INT,
+		HalfFloat = GL_HALF_FLOAT, Float = GL_FLOAT
 	};
 
 	enum WrapMode
 	{
-		Repeat = GL_REPEAT,
-		MirroredRepeat = GL_MIRRORED_REPEAT,
-		ClampTEdge = GL_CLAMP_TO_EDGE,
-		ClampToBorder = GL_CLAMP_TO_BORDER
+		Repeat = GL_REPEAT, MirroredRepeat = GL_MIRRORED_REPEAT,
+		ClampTEdge = GL_CLAMP_TO_EDGE, ClampToBorder = GL_CLAMP_TO_BORDER
 	};
 
 	enum FilterMode
 	{
-		Nearest = GL_NEAREST,
-		Linear = GL_LINEAR,
+		Nearest = GL_NEAREST, Linear = GL_LINEAR,
 		NearestMipmapNearest = GL_NEAREST_MIPMAP_NEAREST,
 		LinearMipmapNearest = GL_LINEAR_MIPMAP_NEAREST,
 		NearestMipmapLinear = GL_NEAREST_MIPMAP_LINEAR,
@@ -43,44 +32,36 @@ public:
 	};
 
 	Texture();
-	Texture(const Texture& other);
-	//Texture(const Image& image, Format format = Format::RGBA);
-	//Texture(int width, int height, Format format);
-	//Texture(int width, int height, Format format, const unsigned char* data);
-
 	~Texture();
 
+	// Delete copy
+	Texture(const Texture&) = delete;
+	Texture& operator=(const Texture&) = delete;
+
+	// Allow move
+	Texture(Texture&& other) noexcept;
+	Texture& operator=(Texture&& other) noexcept;
+
 	operator unsigned int() const { return id; }
-	const Texture& operator=(const Texture& other);
 
 	void Image2D(const void* data, GLenum type, GLenum format, unsigned int width, unsigned int height, GLenum internalFormat);
 	void Image2DMultisample(unsigned int samples, GLenum internalFormat, unsigned int width, unsigned int height);
-
 	void SetWrapping(WrapMode wrapS);
 	void SetWrapping(WrapMode wrapS, WrapMode wrapT);
 	void SetWrapping(WrapMode wrapS, WrapMode wrapT, WrapMode wrapR);
-
 	void SetFilters(FilterMode minFilter, FilterMode magFilter);
-
 	void SetBorderColor();
 	void SetBorderColor(float r, float g, float b, float a);
-
 	void GenerateMipmaps();
+	GLenum GetTarget() const { return target; }
 
-	bool IsMultisampled() const { return multisampled; }
-	unsigned int GetSamples() const { return samples; }
 private:
-	unsigned int id;
-	int width = 0;
-	int height = 0;
-	int channels = 0;
-	bool multisampled = false;
-	unsigned int samples = 1;
+	unsigned int id = 0;
+	GLenum target = GL_TEXTURE_2D;
 };
 
-Texture LoadTextureHighQuality(const std::string& filepath);
-Texture LoadTexture(const std::string& filepath); // from file
-Texture LoadTexture(const unsigned char* data, int byteLength); // from memory
-Texture LoadCubemap(const std::array<std::string, 6>& faces);
+std::shared_ptr<Texture> LoadTexture(const std::string& filepath);
+std::shared_ptr<Texture> LoadTexture(const unsigned char* data, int byteLength);
+std::shared_ptr<Texture> LoadCubemap(const std::array<std::string, 6>& faces);
 
-#endif 
+#endif

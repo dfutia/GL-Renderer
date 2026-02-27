@@ -7,31 +7,22 @@
 
 struct Mesh
 {
-    VertexArray* vao;
-    VertexBuffer* vbo;
+    std::shared_ptr<VertexArray> vao;
+    std::shared_ptr<VertexBuffer> vbo;
+    std::shared_ptr<VertexBuffer> ebo;
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
 
-    int VertexCount() const
-    {
-        return vertices.size();
-    }
-
-    int IndexCount() const
-    {
-        return indices.size();
-    }
-
-    const Vertex* Vertices() const
-    {
-        return &vertices[0];
-    }
+    int VertexCount() const { return static_cast<int>(vertices.size()); }
+    int IndexCount() const { return static_cast<int>(indices.size()); }
+    const Vertex* Vertices() const { return vertices.empty() ? nullptr : &vertices[0]; }
 };
 
 struct SkinnedMesh
 {
-    VertexArray* vao = nullptr;
-    VertexBuffer* vbo = nullptr;
+    std::shared_ptr<VertexArray> vao;
+    std::shared_ptr<VertexBuffer> vbo;
+    std::shared_ptr<VertexBuffer> ebo;
     std::vector<SkinnedVertex> vertices;
     std::vector<unsigned int> indices;
     Skeleton skeleton;
@@ -41,4 +32,5 @@ struct SkinnedMesh
 };
 
 Mesh CreateMesh(const float* vertices, size_t vertexCount, unsigned int stride);
+
 #endif 

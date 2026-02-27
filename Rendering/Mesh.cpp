@@ -55,8 +55,8 @@ Mesh CreateMesh(const float* vertices, size_t vertexCount, unsigned int stride)
     }
 
     unsigned int newStride = sizeof(float) * 11; // 3 + 3 + 2 + 3
-    mesh.vbo = new VertexBuffer(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
-    mesh.vao = new VertexArray();
+    mesh.vbo = std::make_shared<VertexBuffer>(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
+    mesh.vao = std::make_shared<VertexArray>();
     mesh.vao->BindAttribute(0, *mesh.vbo, GL_FLOAT, 3, newStride, 0);
     mesh.vao->BindAttribute(1, *mesh.vbo, GL_FLOAT, 3, newStride, sizeof(float) * 3);
     mesh.vao->BindAttribute(2, *mesh.vbo, GL_FLOAT, 2, newStride, sizeof(float) * 6);
