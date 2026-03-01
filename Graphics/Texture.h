@@ -2,6 +2,7 @@
 #define TEXTURE_H
 
 #include <memory>
+#include <expected>
 
 class Texture
 {
