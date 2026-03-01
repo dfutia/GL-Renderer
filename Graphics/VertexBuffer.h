@@ -11,6 +11,15 @@ struct Vertex
 	glm::vec3 normal;
 	glm::vec2 texCoords;
 	glm::vec3 tangent;
+
+	std::string DebugInfo() const
+	{
+		std::ostringstream ss;
+		ss << "pos(" << position.x << ", " << position.y << ", " << position.z << ") "
+			<< "norm(" << normal.x << ", " << normal.y << ", " << normal.z << ") "
+			<< "uv(" << texCoords.x << ", " << texCoords.y << ")";
+		return ss.str();
+	}
 };
 
 struct SkinnedVertex
@@ -21,6 +30,15 @@ struct SkinnedVertex
 	int boneIDs[4];
 	float boneWeights[4];
 	glm::vec3 tangent;
+
+	std::string DebugInfo() const
+	{
+		std::ostringstream ss;
+		ss << "pos(" << position.x << ", " << position.y << ", " << position.z << ") "
+			<< "bones[" << boneIDs[0] << "," << boneIDs[1] << "," << boneIDs[2] << "," << boneIDs[3] << "] "
+			<< "weights[" << boneWeights[0] << "," << boneWeights[1] << "," << boneWeights[2] << "," << boneWeights[3] << "]";
+		return ss.str();
+	}
 };
 
 // Helper class for building vertex data

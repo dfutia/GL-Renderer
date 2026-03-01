@@ -9,12 +9,30 @@ struct Model
 {
     Mesh mesh;
     Material material;
+
+    std::string DebugInfo() const
+    {
+        std::ostringstream ss;
+        ss << "=== Model ===\n";
+        ss << mesh.DebugInfo();
+        ss << material.DebugInfo();
+        return ss.str();
+    }
 };
 
 struct SkinnedModel
 {
     SkinnedMesh mesh;
     Material material;
+
+    std::string DebugInfo() const
+    {
+        std::ostringstream ss;
+        ss << "=== SkinnedModel ===\n";
+        ss << mesh.DebugInfo();
+        ss << material.DebugInfo();
+        return ss.str();
+    }
 };
 
 Model LoadModel(const std::string& filepath);

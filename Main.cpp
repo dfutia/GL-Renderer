@@ -117,6 +117,7 @@ int main(int argc, char* argv[])
 
 	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
 	SkinnedModel mannequinSkinned = LoadSkinnedModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx").string());
+	std::println("{}", mannequinSkinned.DebugInfo());
 
 	std::vector<Animation> walkAnim = LoadAnimations((GetMediaPath() / "Models/Walking.fbx").string());
 
@@ -363,3 +364,9 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+
+
+
+
+
+

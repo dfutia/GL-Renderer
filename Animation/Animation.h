@@ -15,6 +15,13 @@ struct Bone
     int parentIndex = -1;
     glm::mat4 offsetMatrix{ 1.0f };
     glm::mat4 localBindTransform{ 1.0f }; // default local transform from the node tree
+
+    std::string DebugInfo() const
+    {
+        std::ostringstream ss;
+        ss << "Bone: \"" << name << "\" parent=" << parentIndex;
+        return ss.str();
+    }
 };
 
 struct Skeleton
@@ -26,6 +33,15 @@ struct Skeleton
     {
         auto it = boneNameToIndex.find(name);
         return it != boneNameToIndex.end() ? it->second : -1;
+    }
+
+    std::string DebugInfo() const
+    {
+        std::ostringstream ss;
+        ss << "Skeleton: " << bones.size() << " bones\n";
+        for (int i = 0; i < bones.size(); i++)
+            ss << "  [" << i << "] " << bones[i].DebugInfo() << "\n";
+        return ss.str();
     }
 };
 
@@ -82,6 +98,21 @@ struct Animation
         }
 
         return nullptr;
+    }
+
+    std::string DebugInfo() const
+    {
+        std::ostringstream ss;
+        ss << "Animation: \"" << name << "\"\n";
+        ss << "  duration=" << duration << " ticks=" << ticksPerSecond << "\n";
+        ss << "  channels=" << channels.size() << "\n";
+        for (const auto& ch : channels)
+        {
+            ss << "    [" << ch.boneName << "] pos:" << ch.positionKeys.size()
+                << " rot:" << ch.rotationKeys.size()
+                << " scale:" << ch.scaleKeys.size() << "\n";
+        }
+        return ss.str();
     }
 };
 

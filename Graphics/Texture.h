@@ -55,6 +55,15 @@ public:
 	void GenerateMipmaps();
 	GLenum GetTarget() const { return target; }
 
+	std::string DebugInfo() const
+	{
+		std::ostringstream ss;
+		//ss << "Texture id=" << id << " " << width << "x" << height;
+		ss << " target=" << (target == GL_TEXTURE_2D ? "2D" :
+			target == GL_TEXTURE_2D_MULTISAMPLE ? "2D_MS" :
+			target == GL_TEXTURE_CUBE_MAP ? "Cubemap" : "other");
+		return ss.str();
+	}
 private:
 	unsigned int id = 0;
 	GLenum target = GL_TEXTURE_2D;

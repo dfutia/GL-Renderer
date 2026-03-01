@@ -53,6 +53,22 @@ public:
 
 	MaterialProperties properties;
 
+	std::string DebugInfo() const
+	{
+		std::ostringstream ss;
+		ss << "Material: " << textures.size() << " textures\n";
+		ss << "  Properties:\n";
+		ss << "    diffuse(" << properties.diffuse.r << ", " << properties.diffuse.g << ", " << properties.diffuse.b << ")\n";
+		ss << "    specular(" << properties.specular.r << ", " << properties.specular.g << ", " << properties.specular.b << ")\n";
+		ss << "    shininess=" << properties.shininess << "\n";
+		ss << "    metallic=" << properties.metallic << " roughness=" << properties.roughness << "\n";
+		ss << "  Texture slots:\n";
+		for (const auto& [name, tex] : textures)
+		{
+			ss << "    [" << name << "] " << (tex ? tex->DebugInfo() : "null") << "\n";
+		}
+		return ss.str();
+	}
 private:
 	std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
 };
