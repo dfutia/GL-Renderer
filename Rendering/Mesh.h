@@ -22,19 +22,6 @@ struct Mesh
     bool IsSkinned() const { return skeleton.has_value(); }
 };
 
-//struct SkinnedMesh
-//{
-//    std::shared_ptr<VertexArray> vao;
-//    std::shared_ptr<VertexBuffer> vbo;
-//    std::shared_ptr<VertexBuffer> ebo;
-//    std::vector<SkinnedVertex> vertices;
-//    std::vector<unsigned int> indices;
-//    Skeleton skeleton;
-//
-//    int VertexCount() const { return static_cast<int>(vertices.size()); }
-//    int IndexCount() const { return static_cast<int>(indices.size()); }
-//};
-
 Mesh CreateMesh(const float* vertices, size_t vertexCount, unsigned int stride);
 
 #endif 

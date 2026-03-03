@@ -120,243 +120,123 @@ static void BuildHierarchy(const aiNode* node, Skeleton& skeleton, int parentInd
     }
 }
 
-//Model LoadModel(const std::string& filepath)
+//std::vector<Animation> ExtractAnimations(const aiScene* scene)
 //{
-//    std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
+//    std::vector<Animation> animations;
 //
-//    Assimp::Importer importer;
-//
-//    const aiScene* scene = importer.ReadFileFromMemory(
-//        fileData.data(), fileData.size(),
-//        aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace,
-//        "fbx");
-//
-//    if (!scene || !scene->mNumMeshes)
-//        throw std::runtime_error("Failed to load model: " + filepath);
-//
-//    aiMesh* aiM = scene->mMeshes[0];
-//
-//    // --- Read vertices ---
-//    std::vector<Vertex> vertices;
-//    vertices.reserve(aiM->mNumFaces * 3);
-//
-//    for (unsigned int i = 0; i < aiM->mNumFaces; i++)
+//    for (unsigned int i = 0; i < scene->mNumAnimations; i++)
 //    {
-//        aiFace& face = aiM->mFaces[i];
-//        for (unsigned int j = 0; j < 3; j++)
+//        aiAnimation* aiAnim = scene->mAnimations[i];
+//
+//        Animation anim;
+//        anim.name = aiAnim->mName.C_Str();
+//        anim.duration = static_cast<float>(aiAnim->mDuration);
+//        anim.ticksPerSecond = aiAnim->mTicksPerSecond > 0
+//            ? static_cast<float>(aiAnim->mTicksPerSecond)
+//            : 24.0f;
+//
+//        for (unsigned int j = 0; j < aiAnim->mNumChannels; j++)
 //        {
-//            unsigned int idx = face.mIndices[j];
-//            Vertex vertex;
-//            vertex.position = glm::vec3(aiM->mVertices[idx].x, aiM->mVertices[idx].y, aiM->mVertices[idx].z);
+//            aiNodeAnim* aiChannel = aiAnim->mChannels[j];
+//            std::string rawName = aiChannel->mNodeName.C_Str();
+//            std::string boneName = rawName;
 //
-//            if (aiM->mNormals)
-//                vertex.normal = glm::vec3(aiM->mNormals[idx].x, aiM->mNormals[idx].y, aiM->mNormals[idx].z);
+//            // Check if we already have a channel for this bone
+//            // (multiple AssimpFbx sub-nodes may map to the same bone)
+//            int existingIndex = -1;
+//            auto it = anim.boneNameToChannel.find(boneName);
+//            if (it != anim.boneNameToChannel.end())
+//                existingIndex = it->second;
 //
-//            if (aiM->mTextureCoords[0])
-//                vertex.texCoords = glm::vec2(aiM->mTextureCoords[0][idx].x, aiM->mTextureCoords[0][idx].y);
+//            if (existingIndex != -1)
+//            {
+//                // Merge into existing channel
+//                BoneAnimation& channel = anim.channels[existingIndex];
 //
-//            if (aiM->mTangents)
-//                vertex.tangent = glm::vec3(aiM->mTangents[idx].x, aiM->mTangents[idx].y, aiM->mTangents[idx].z);
+//                if (aiChannel->mNumPositionKeys > 1 ||
+//                    (aiChannel->mNumPositionKeys == 1 && channel.positionKeys.empty()))
+//                {
+//                    for (unsigned int k = 0; k < aiChannel->mNumPositionKeys; k++)
+//                    {
+//                        auto& key = aiChannel->mPositionKeys[k];
+//                        channel.positionKeys.push_back({
+//                            static_cast<float>(key.mTime),
+//                            glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
+//                            });
+//                    }
+//                }
+//
+//                if (aiChannel->mNumRotationKeys > 1 ||
+//                    (aiChannel->mNumRotationKeys == 1 && channel.rotationKeys.empty()))
+//                {
+//                    for (unsigned int k = 0; k < aiChannel->mNumRotationKeys; k++)
+//                    {
+//                        auto& key = aiChannel->mRotationKeys[k];
+//                        channel.rotationKeys.push_back({
+//                            static_cast<float>(key.mTime),
+//                            glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)
+//                            });
+//                    }
+//                }
+//
+//                if (aiChannel->mNumScalingKeys > 1 ||
+//                    (aiChannel->mNumScalingKeys == 1 && channel.scaleKeys.empty()))
+//                {
+//                    for (unsigned int k = 0; k < aiChannel->mNumScalingKeys; k++)
+//                    {
+//                        auto& key = aiChannel->mScalingKeys[k];
+//                        channel.scaleKeys.push_back({
+//                            static_cast<float>(key.mTime),
+//                            glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
+//                            });
+//                    }
+//                }
+//            }
 //            else
-//                vertex.tangent = glm::vec3(1.0f, 0.0f, 0.0f);
+//            {
+//                // New channel
+//                BoneAnimation channel;
+//                channel.boneName = boneName;
 //
-//            vertices.push_back(vertex);
+//                for (unsigned int k = 0; k < aiChannel->mNumPositionKeys; k++)
+//                {
+//                    auto& key = aiChannel->mPositionKeys[k];
+//                    channel.positionKeys.push_back({
+//                        static_cast<float>(key.mTime),
+//                        glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
+//                        });
+//                }
+//
+//                for (unsigned int k = 0; k < aiChannel->mNumRotationKeys; k++)
+//                {
+//                    auto& key = aiChannel->mRotationKeys[k];
+//                    channel.rotationKeys.push_back({
+//                        static_cast<float>(key.mTime),
+//                        glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)
+//                        });
+//                }
+//
+//                for (unsigned int k = 0; k < aiChannel->mNumScalingKeys; k++)
+//                {
+//                    auto& key = aiChannel->mScalingKeys[k];
+//                    channel.scaleKeys.push_back({
+//                        static_cast<float>(key.mTime),
+//                        glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
+//                        });
+//                }
+//
+//                anim.boneNameToChannel[boneName] = static_cast<int>(anim.channels.size());
+//                anim.channels.push_back(std::move(channel));
+//            }
 //        }
+//
+//        animations.push_back(std::move(anim));
 //    }
 //
-//    // --- Pack into VBO ---
-//    VertexDataBuffer buffer;
-//    for (const auto& v : vertices)
-//    {
-//        buffer.Vec3(v.position);
-//        buffer.Vec3(v.normal);
-//        buffer.Vec2(v.texCoords);
-//        buffer.Vec3(v.tangent);
-//    }
-//
-//    // --- Build VAO ---
-//    Mesh mesh;
-//    mesh.vertices = vertices;
-//    mesh.vbo = std::make_shared<VertexBuffer>(buffer.Pointer(), buffer.Size(), VertexBuffer::StaticDraw);
-//    mesh.vao = std::make_shared<VertexArray>();
-//
-//    unsigned int stride = sizeof(float) * 11;
-//    mesh.vao->BindAttribute(0, *mesh.vbo, GL_FLOAT, 3, stride, 0);
-//    mesh.vao->BindAttribute(1, *mesh.vbo, GL_FLOAT, 3, stride, sizeof(float) * 3);
-//    mesh.vao->BindAttribute(2, *mesh.vbo, GL_FLOAT, 2, stride, sizeof(float) * 6);
-//    mesh.vao->BindAttribute(3, *mesh.vbo, GL_FLOAT, 3, stride, sizeof(float) * 8);
-//
-//    // --- Build material ---
-//    aiMaterial* aiMat = scene->mMaterials[aiM->mMaterialIndex];
-//
-//    Material material = Material::CreateDefault();
-//
-//    aiColor3D color;
-//    float value;
-//
-//    if (aiMat->Get(AI_MATKEY_COLOR_AMBIENT, color) == AI_SUCCESS)
-//        material.properties.ambient = glm::vec3(color.r, color.g, color.b);
-//
-//    if (aiMat->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
-//        material.properties.diffuse = glm::vec3(color.r, color.g, color.b);
-//
-//    if (aiMat->Get(AI_MATKEY_COLOR_SPECULAR, color) == AI_SUCCESS)
-//        material.properties.specular = glm::vec3(color.r, color.g, color.b);
-//
-//    if (aiMat->Get(AI_MATKEY_SHININESS, value) == AI_SUCCESS)
-//        material.properties.shininess = value;
-//
-//    if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
-//        material.properties.metallic = value;
-//
-//    if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
-//        material.properties.roughness = value;
-//
-//    Model result;
-//    result.mesh = std::move(mesh);
-//    result.material = std::move(material);
-//
-//    // Extract and store textures in the model
-//    if (auto tex = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
-//        result.textures.push_back(std::move(*tex));
-//
-//    if (auto tex = ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
-//        result.textures.push_back(std::move(*tex));
-//
-//    if (auto tex = ExtractTexture(scene, aiM, aiTextureType_NORMALS))
-//        result.textures.push_back(std::move(*tex));
-//
-//    // Now set up material references (textures are stable in the vector)
-//    size_t texIndex = 0;
-//    if (ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
-//        result.material.SetTexture(Material::DIFFUSE, result.textures[texIndex++]);
-//
-//    if (ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
-//        result.material.SetTexture(Material::SPECULAR, result.textures[texIndex++]);
-//
-//    if (ExtractTexture(scene, aiM, aiTextureType_NORMALS))
-//        result.material.SetTexture(Material::NORMAL, result.textures[texIndex++]);
-//
-//    return result;
+//    return animations;
 //}
 
-std::vector<Animation> ExtractAnimations(const aiScene* scene)
-{
-    std::vector<Animation> animations;
-
-    for (unsigned int i = 0; i < scene->mNumAnimations; i++)
-    {
-        aiAnimation* aiAnim = scene->mAnimations[i];
-
-        Animation anim;
-        anim.name = aiAnim->mName.C_Str();
-        anim.duration = static_cast<float>(aiAnim->mDuration);
-        anim.ticksPerSecond = aiAnim->mTicksPerSecond > 0
-            ? static_cast<float>(aiAnim->mTicksPerSecond)
-            : 24.0f;
-
-        for (unsigned int j = 0; j < aiAnim->mNumChannels; j++)
-        {
-            aiNodeAnim* aiChannel = aiAnim->mChannels[j];
-            std::string rawName = aiChannel->mNodeName.C_Str();
-            std::string boneName = rawName;
-
-            // Check if we already have a channel for this bone
-            // (multiple AssimpFbx sub-nodes may map to the same bone)
-            int existingIndex = -1;
-            auto it = anim.boneNameToChannel.find(boneName);
-            if (it != anim.boneNameToChannel.end())
-                existingIndex = it->second;
-
-            if (existingIndex != -1)
-            {
-                // Merge into existing channel
-                BoneAnimation& channel = anim.channels[existingIndex];
-
-                if (aiChannel->mNumPositionKeys > 1 ||
-                    (aiChannel->mNumPositionKeys == 1 && channel.positionKeys.empty()))
-                {
-                    for (unsigned int k = 0; k < aiChannel->mNumPositionKeys; k++)
-                    {
-                        auto& key = aiChannel->mPositionKeys[k];
-                        channel.positionKeys.push_back({
-                            static_cast<float>(key.mTime),
-                            glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-                            });
-                    }
-                }
-
-                if (aiChannel->mNumRotationKeys > 1 ||
-                    (aiChannel->mNumRotationKeys == 1 && channel.rotationKeys.empty()))
-                {
-                    for (unsigned int k = 0; k < aiChannel->mNumRotationKeys; k++)
-                    {
-                        auto& key = aiChannel->mRotationKeys[k];
-                        channel.rotationKeys.push_back({
-                            static_cast<float>(key.mTime),
-                            glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)
-                            });
-                    }
-                }
-
-                if (aiChannel->mNumScalingKeys > 1 ||
-                    (aiChannel->mNumScalingKeys == 1 && channel.scaleKeys.empty()))
-                {
-                    for (unsigned int k = 0; k < aiChannel->mNumScalingKeys; k++)
-                    {
-                        auto& key = aiChannel->mScalingKeys[k];
-                        channel.scaleKeys.push_back({
-                            static_cast<float>(key.mTime),
-                            glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-                            });
-                    }
-                }
-            }
-            else
-            {
-                // New channel
-                BoneAnimation channel;
-                channel.boneName = boneName;
-
-                for (unsigned int k = 0; k < aiChannel->mNumPositionKeys; k++)
-                {
-                    auto& key = aiChannel->mPositionKeys[k];
-                    channel.positionKeys.push_back({
-                        static_cast<float>(key.mTime),
-                        glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-                        });
-                }
-
-                for (unsigned int k = 0; k < aiChannel->mNumRotationKeys; k++)
-                {
-                    auto& key = aiChannel->mRotationKeys[k];
-                    channel.rotationKeys.push_back({
-                        static_cast<float>(key.mTime),
-                        glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)
-                        });
-                }
-
-                for (unsigned int k = 0; k < aiChannel->mNumScalingKeys; k++)
-                {
-                    auto& key = aiChannel->mScalingKeys[k];
-                    channel.scaleKeys.push_back({
-                        static_cast<float>(key.mTime),
-                        glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-                        });
-                }
-
-                anim.boneNameToChannel[boneName] = static_cast<int>(anim.channels.size());
-                anim.channels.push_back(std::move(channel));
-            }
-        }
-
-        animations.push_back(std::move(anim));
-    }
-
-    return animations;
-}
-
-Model LoadModel(const std::string& filepath)
+std::expected<Model, std::string> LoadModel(const std::filesystem::path& filepath)
 {
     std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
 
@@ -371,7 +251,7 @@ Model LoadModel(const std::string& filepath)
     );
 
     if (!scene || !scene->mNumMeshes)
-        throw std::runtime_error("Failed to load model: " + filepath);
+        return std::unexpected("Failed to load model: " + filepath.string());
 
     aiMesh* aiM = scene->mMeshes[0];
 
@@ -449,9 +329,9 @@ Model LoadModel(const std::string& filepath)
         buffer.Vec3(v.position);
         buffer.Vec3(v.normal);
         buffer.Vec2(v.texCoords);
+        buffer.Vec3(v.tangent);
         for (int j = 0; j < 4; j++) buffer.Int32(v.boneIDs[j]);
         for (int j = 0; j < 4; j++) buffer.Float(v.boneWeights[j]);
-        buffer.Vec3(v.tangent);
     }
 
     // Build VAO
@@ -529,7 +409,7 @@ Model LoadModel(const std::string& filepath)
     return result;
 }
 
-std::vector<Animation> LoadAnimations(const std::string& filepath)
+std::expected<std::vector<Animation>, std::string> LoadAnimations(const std::filesystem::path& filepath)
 {
     std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
 
@@ -542,7 +422,7 @@ std::vector<Animation> LoadAnimations(const std::string& filepath)
         "fbx");
 
     if (!scene)
-        throw std::runtime_error("Failed to load animations: " + filepath);
+        return std::unexpected("Failed to load animations: " + filepath.string());
 
     std::vector<Animation> animations;
 

@@ -12,20 +12,10 @@ struct Vertex
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 texCoords;
-	int boneIDs[4] = { -1, -1, -1, -1 }; 
-	float boneWeights[4] = { 0, 0, 0, 0 }; 
 	glm::vec3 tangent;
+	int boneIDs[4] = { -1, -1, -1, -1 };
+	float boneWeights[4] = { 0, 0, 0, 0 };
 };
-
-//struct SkinnedVertex
-//{
-//	glm::vec3 position;
-//	glm::vec3 normal;
-//	glm::vec2 texCoords;
-//	int boneIDs[4];
-//	float boneWeights[4];
-//	glm::vec3 tangent;
-//};
 
 // Helper class for building vertex data
 class VertexDataBuffer

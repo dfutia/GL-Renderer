@@ -15,8 +15,7 @@ struct Model
     std::vector<Texture> textures;
 };
 
-Model LoadModel(const std::string& filepath);
-//SkinnedModel LoadSkinnedModel(const std::string& filepath);
-std::vector<Animation> LoadAnimations(const std::string& filepath);
+std::expected<Model, std::string> LoadModel(const std::filesystem::path& filepath);
+std::expected<std::vector<Animation>, std::string> LoadAnimations(const std::filesystem::path& filepath);
 
 #endif 

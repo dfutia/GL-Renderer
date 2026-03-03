@@ -112,10 +112,10 @@ int main(int argc, char* argv[])
 	Scene scene;
 	scene.physics = &physics;
 	
+	// LOAD TEXTURES
 	std::vector<std::filesystem::path> texturesToLoad = {
 		GetMediaPath() / "Images/wood.png",
 		GetMediaPath() / "Images/container.jpg",
-		GetMediaPath() / "Images/container.jpg"
 	};
 	std::unordered_map<std::string, Texture> loadedTextures;
 	for (const auto& texPath : texturesToLoad)
@@ -140,16 +140,62 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	// LOAD MODELS
 	std::vector<std::filesystem::path> modelsToLoad = {
-		GetMediaPath() / "Models/mannequin.fbx"
+		GetMediaPath() / "Models/mannequin.fbx",
+		GetMediaPath() / "Models/Hip Hop Dancing.fbx",
 	};	
 	std::unordered_map<std::string, Model> loadedModels;
+	for (const auto& modelPath : modelsToLoad)
+	{
+		// check if it's already loaded (e.g. from embedded texture)
+		if (loadedModels.find(modelPath.filename().string()) != loadedModels.end())
+		{
+			std::println("Model '{}' is already loaded, skipping.", modelPath.string());
+			continue;
+		}
 
-	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
-	Model mannequinSkinned = LoadModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx").string());
+		auto result = LoadModel(modelPath.string());
+		if (!result)
+		{
+			std::println("Could not load model '{}': {}", modelPath.string(), result.error());
+			continue;
+		}
+		else
+		{
+			//std::println("Loaded model '{}' with name '{}'", modelPath.string(), modelPath.filename().string());
+			loadedModels[modelPath.filename().string()] = std::move(*result);
+		}
+	}
 
-	std::vector<Animation> walkAnim = LoadAnimations((GetMediaPath() / "Models/Walking.fbx").string());
+	// LOAD ANIMATIONS
+	std::vector<std::filesystem::path> animsToLoad = {
+	GetMediaPath() / "Models/Walking.fbx",
+	};
+	std::unordered_map<std::string, std::vector<Animation>> loadedAnims;
+	for (const auto& animPath : animsToLoad)
+	{
+		// check if it's already loaded (e.g. from embedded texture)
+		if (loadedAnims.find(animPath.filename().string()) != loadedAnims.end())
+		{
+			std::println("Animation '{}' is already loaded, skipping.", animPath.string());
+			continue;
+		}
 
+		auto result = LoadAnimations(animPath.string());
+		if (!result)
+		{
+			std::println("Could not load animaton '{}': {}", animPath.string(), result.error());
+			continue;
+		}
+		else
+		{
+			//std::println("Loaded animation '{}' with name '{}'", animPath.string(), animPath.filename().string());
+			loadedAnims[animPath.filename().string()] = std::move(*result);
+		}
+	}
+
+	// LOAD SHADERS
 	shaders.Load("unlit", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/unlit.frag");
 	shaders.Load("phong", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong.frag");
 	shaders.Load("skinned_phong", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/phong.frag", { "SKINNED" });
@@ -219,10 +265,10 @@ int main(int argc, char* argv[])
 	auto mannequinActor = scene.CreateActor();
 
 	mannequinActor->AddComponent<TransformComponent>();
-	auto* skinned = mannequinActor->AddComponent<SkinnedModelComponent>(mannequinSkinned.mesh, mannequinSkinned.material);
+	auto* skinned = mannequinActor->AddComponent<SkinnedModelComponent>(loadedModels.at("Hip Hop Dancing.fbx").mesh, loadedModels.at("Hip Hop Dancing.fbx").material);
 	mannequinActor->AddComponent<RenderComponent>();
 
-	skinned->animator.Play(&walkAnim[0]); // Play first animation
+	skinned->animator.Play(&loadedAnims.at("Walking.fbx")[0]); // Play first animation
 
 	renderer.SetCamera(&camera);
 	renderer.SetLight(&light);
