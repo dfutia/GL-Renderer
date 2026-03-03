@@ -1,6 +1,8 @@
 #ifndef DATA_BUFFER_H
 #define DATA_BUFFER_H
 
+#include <utility>
+
 struct Mesh;
 
 static const int MAX_BONE_INFLUENCE = 4;
@@ -10,36 +12,20 @@ struct Vertex
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 texCoords;
+	int boneIDs[4] = { -1, -1, -1, -1 }; 
+	float boneWeights[4] = { 0, 0, 0, 0 }; 
 	glm::vec3 tangent;
-
-	std::string DebugInfo() const
-	{
-		std::ostringstream ss;
-		ss << "pos(" << position.x << ", " << position.y << ", " << position.z << ") "
-			<< "norm(" << normal.x << ", " << normal.y << ", " << normal.z << ") "
-			<< "uv(" << texCoords.x << ", " << texCoords.y << ")";
-		return ss.str();
-	}
 };
 
-struct SkinnedVertex
-{
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec2 texCoords;
-	int boneIDs[4];
-	float boneWeights[4];
-	glm::vec3 tangent;
-
-	std::string DebugInfo() const
-	{
-		std::ostringstream ss;
-		ss << "pos(" << position.x << ", " << position.y << ", " << position.z << ") "
-			<< "bones[" << boneIDs[0] << "," << boneIDs[1] << "," << boneIDs[2] << "," << boneIDs[3] << "] "
-			<< "weights[" << boneWeights[0] << "," << boneWeights[1] << "," << boneWeights[2] << "," << boneWeights[3] << "]";
-		return ss.str();
-	}
-};
+//struct SkinnedVertex
+//{
+//	glm::vec3 position;
+//	glm::vec3 normal;
+//	glm::vec2 texCoords;
+//	int boneIDs[4];
+//	float boneWeights[4];
+//	glm::vec3 tangent;
+//};
 
 // Helper class for building vertex data
 class VertexDataBuffer

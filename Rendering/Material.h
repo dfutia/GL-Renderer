@@ -2,6 +2,8 @@
 #define MATERIAL_H
 
 #include <memory>
+#include <functional>
+
 #include "Graphics/Texture.h"
 
 struct MaterialProperties
@@ -38,13 +40,11 @@ public:
 
 	Material() = default;
 
-	void SetTexture(const std::string& name, std::shared_ptr<Texture> texture);
+	void SetTexture(const std::string& name, Texture& texture);
 	void RemoveTexture(const std::string& name);
 	bool HasTexture(const std::string& name) const;
 	const Texture& GetTexture(const std::string& name) const;
-	std::shared_ptr<Texture> GetTexturePtr(const std::string& name) const;
-
-	const std::unordered_map<std::string, std::shared_ptr<Texture>>& GetAllTextures() const { return textures; }
+	const std::unordered_map<std::string, std::reference_wrapper<Texture>>& GetAllTextures() const { return textures; }
 
 	static Material CreateDefault();
 	static Material CreateMetal();
@@ -52,25 +52,8 @@ public:
 	static Material CreatePBRDefault();
 
 	MaterialProperties properties;
-
-	std::string DebugInfo() const
-	{
-		std::ostringstream ss;
-		ss << "Material: " << textures.size() << " textures\n";
-		ss << "  Properties:\n";
-		ss << "    diffuse(" << properties.diffuse.r << ", " << properties.diffuse.g << ", " << properties.diffuse.b << ")\n";
-		ss << "    specular(" << properties.specular.r << ", " << properties.specular.g << ", " << properties.specular.b << ")\n";
-		ss << "    shininess=" << properties.shininess << "\n";
-		ss << "    metallic=" << properties.metallic << " roughness=" << properties.roughness << "\n";
-		ss << "  Texture slots:\n";
-		for (const auto& [name, tex] : textures)
-		{
-			ss << "    [" << name << "] " << (tex ? tex->DebugInfo() : "null") << "\n";
-		}
-		return ss.str();
-	}
 private:
-	std::unordered_map<std::string, std::shared_ptr<Texture>> textures;
+	std::unordered_map<std::string, std::reference_wrapper<Texture>> textures;
 };
 
 #endif

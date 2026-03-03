@@ -1,9 +1,9 @@
 #include "PCH.h"
 #include "Material.h"
 
-void Material::SetTexture(const std::string& name, std::shared_ptr<Texture> texture)
+void Material::SetTexture(const std::string& name, Texture& texture)
 {
-	textures[name] = texture;
+	textures.insert_or_assign(name, std::ref(texture));
 }
 
 void Material::RemoveTexture(const std::string& name)
@@ -18,13 +18,7 @@ bool Material::HasTexture(const std::string& name) const
 
 const Texture& Material::GetTexture(const std::string& name) const
 {
-	return *textures.at(name);
-}
-
-std::shared_ptr<Texture> Material::GetTexturePtr(const std::string& name) const
-{
-	auto it = textures.find(name);
-	return it != textures.end() ? it->second : nullptr;
+	return textures.at(name).get();
 }
 
 Material Material::CreateDefault()

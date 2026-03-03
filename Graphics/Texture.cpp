@@ -102,81 +102,70 @@ void Texture::GenerateMipmaps()
 	glGenerateMipmap(target);
 }
 
-std::shared_ptr<Texture> LoadTexture(const std::string& filepath)
+std::expected<Texture, std::string> LoadTexture(const std::filesystem::path& filepath)
 {
-	std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath);
+	std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath.string());
 	if (fileData.empty())
-		throw std::runtime_error("Failed to load: " + filepath);
+	{
+		return std::unexpected("Failed to load file: " + filepath.string());
+	}
 
+	return LoadTexture(std::span<const std::uint8_t>(fileData));
+}
+
+std::expected<Texture, std::string> LoadTexture(std::span<const std::uint8_t> data)
+{
 	int width, height, channels;
-	unsigned char* pixels = stbi_load_from_memory(
-		fileData.data(), static_cast<int>(fileData.size()),
-		&width, &height, &channels, 0);
+	unsigned char* pixels = stbi_load_from_memory(data.data(), static_cast<int>(data.size()), &width, &height, &channels, 0);
 
 	if (!pixels)
-		throw std::runtime_error("Failed to decode: " + filepath);
+	{
+
+		return std::unexpected(std::string("Failed to decode texture: ") + stbi_failure_reason());
+	}
 
 	GLenum format;
 	switch (channels)
 	{
-	case 1: format = GL_RED;  break;
-	case 2: format = GL_RG;   break;
-	case 3: format = GL_RGB;  break;
+	case 1:  format = GL_RED;  break;
+	case 2:  format = GL_RG;   break;
+	case 3:  format = GL_RGB;  break;
 	default: format = GL_RGBA; break;
 	}
 
-	auto texture = std::make_shared<Texture>();
-	texture->Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
-	texture->SetWrapping(Texture::Repeat, Texture::Repeat);
-	texture->SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
-	texture->GenerateMipmaps();
+	Texture texture;
+	texture.Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
+	texture.SetWrapping(Texture::Repeat, Texture::Repeat);
+	texture.SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
+	texture.GenerateMipmaps();
 
 	stbi_image_free(pixels);
 	return texture;
 }
 
-std::shared_ptr<Texture> LoadTexture(const unsigned char* data, int byteLength)
+std::expected<Texture, std::string> LoadCubemap(const std::array<std::filesystem::path, 6>& faces)
 {
-	int width, height, channels;
-	unsigned char* pixels = stbi_load_from_memory(data, byteLength, &width, &height, &channels, 0);
-	if (!pixels)
-		throw std::runtime_error("Failed to decode texture from memory");
-
-	GLenum format;
-	switch (channels)
-	{
-	case 1: format = GL_RED;  break;
-	case 2: format = GL_RG;   break;
-	case 3: format = GL_RGB;  break;
-	default: format = GL_RGBA; break;
-	}
-
-	auto texture = std::make_shared<Texture>();
-	texture->Image2D(pixels, GL_UNSIGNED_BYTE, format, width, height, format);
-	texture->SetWrapping(Texture::Repeat, Texture::Repeat);
-	texture->SetFilters(Texture::LinearMipmapLinear, Texture::Linear);
-	texture->GenerateMipmaps();
-
-	stbi_image_free(pixels);
-	return texture;
-}
-
-std::shared_ptr<Texture> LoadCubemap(const std::array<std::string, 6>& faces)
-{
-	auto texture = std::make_shared<Texture>();
-	glBindTexture(GL_TEXTURE_CUBE_MAP, *texture);
+	Texture texture;
+	glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
 
 	for (int i = 0; i < 6; i++)
 	{
-		auto fileData = ReadBinaryFile(faces[i]);
+		std::vector<std::uint8_t> fileData = ReadBinaryFile(faces[i].string());
+		if (fileData.empty())
+		{
+			return std::unexpected("Failed to load cubemap face: " + faces[i].string());
+		}
+
 		int width, height, channels;
-		unsigned char* pixels = stbi_load_from_memory(
-			fileData.data(), (int)fileData.size(),
-			&width, &height, &channels, 0);
+		unsigned char* pixels = stbi_load_from_memory(fileData.data(), static_cast<int>(fileData.size()),&width, &height, &channels, 0);
+
+		if (!pixels)
+		{
+			return std::unexpected("Failed to decode cubemap face: " + faces[i].string() + " - " + stbi_failure_reason());
+		}
 
 		GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-			0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, pixels);
 		stbi_image_free(pixels);
 	}
 

@@ -44,17 +44,6 @@ public:
 
 	void Resolve(FrameBuffer& target) const;
 	void Resolve(unsigned int targetFBO, unsigned int targetWidth, unsigned int targetHeight) const;
-
-	std::string DebugInfo() const
-	{
-		std::ostringstream ss;
-		ss << "FrameBuffer id=" << id << " " << width << "x" << height;
-		if (samples > 1) ss << " MSAA x" << samples;
-		ss << "\n";
-		ss << "  Color: " << (textureColor ? textureColor->DebugInfo() : "none") << "\n";
-		ss << "  Depth: " << (depthTexture ? depthTexture->DebugInfo() : "none") << "\n";
-		return ss.str();
-	}
 private:
 	unsigned int id = 0;
 	unsigned int width = 0;

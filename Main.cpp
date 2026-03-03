@@ -111,12 +111,42 @@ int main(int argc, char* argv[])
 	PhysicsWorld physics;
 	Scene scene;
 	scene.physics = &physics;
+	
+	std::vector<std::filesystem::path> texturesToLoad = {
+		GetMediaPath() / "Images/wood.png",
+		GetMediaPath() / "Images/container.jpg",
+		GetMediaPath() / "Images/container.jpg"
+	};
+	std::unordered_map<std::string, Texture> loadedTextures;
+	for (const auto& texPath : texturesToLoad)
+	{
+		// check if it's already loaded (e.g. from embedded texture)
+		if (loadedTextures.find(texPath.filename().string()) != loadedTextures.end())
+		{
+			std::println("Texture '{}' is already loaded, skipping.", texPath.string());
+			continue;
+		}
 
-	auto woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png").string());
-	auto containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg").string());
+		auto result = LoadTexture(texPath.string());
+		if (!result)
+		{
+			std::println("Could not load texture '{}': {}", texPath.string(), result.error());
+			continue;
+		}
+		else
+		{
+			//std::println("Loaded texture '{}' with name '{}'", texPath.string(), texPath.filename().string());
+			loadedTextures[texPath.filename().string()] = std::move(*result);
+		}
+	}
+
+	std::vector<std::filesystem::path> modelsToLoad = {
+		GetMediaPath() / "Models/mannequin.fbx"
+	};	
+	std::unordered_map<std::string, Model> loadedModels;
 
 	Model mannequin = LoadModel((GetMediaPath() / "Models/mannequin.fbx").string());
-	SkinnedModel mannequinSkinned = LoadSkinnedModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx").string());
+	Model mannequinSkinned = LoadModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx").string());
 
 	std::vector<Animation> walkAnim = LoadAnimations((GetMediaPath() / "Models/Walking.fbx").string());
 
@@ -153,10 +183,10 @@ int main(int argc, char* argv[])
 	Mesh cubeMesh = Primitives::CreateCube();
 
 	Material cubeMaterial = Material::CreateDefault();
-	cubeMaterial.SetTexture(Material::DIFFUSE, containerTexture);
+	cubeMaterial.SetTexture(Material::DIFFUSE, loadedTextures.at("container.jpg"));
 
 	Material floorMaterial = Material::CreateDefault();
-	floorMaterial.SetTexture(Material::DIFFUSE, woodTexture);
+	floorMaterial.SetTexture(Material::DIFFUSE, loadedTextures.at("wood.png"));
 
 	for (int i = 0; i < 10; i++)
 	{

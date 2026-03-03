@@ -3,6 +3,9 @@
 
 #include <memory>
 #include <expected>
+#include <string>
+#include <filesystem>
+#include <span>
 
 class Texture
 {
@@ -55,23 +58,13 @@ public:
 	void SetBorderColor(float r, float g, float b, float a);
 	void GenerateMipmaps();
 	GLenum GetTarget() const { return target; }
-
-	std::string DebugInfo() const
-	{
-		std::ostringstream ss;
-		//ss << "Texture id=" << id << " " << width << "x" << height;
-		ss << " target=" << (target == GL_TEXTURE_2D ? "2D" :
-			target == GL_TEXTURE_2D_MULTISAMPLE ? "2D_MS" :
-			target == GL_TEXTURE_CUBE_MAP ? "Cubemap" : "other");
-		return ss.str();
-	}
 private:
 	unsigned int id = 0;
 	GLenum target = GL_TEXTURE_2D;
 };
 
-std::shared_ptr<Texture> LoadTexture(const std::string& filepath);
-std::shared_ptr<Texture> LoadTexture(const unsigned char* data, int byteLength);
-std::shared_ptr<Texture> LoadCubemap(const std::array<std::string, 6>& faces);
+std::expected<Texture, std::string> LoadTexture(const std::filesystem::path& filepath);
+std::expected<Texture, std::string> LoadTexture(std::span<const std::uint8_t> data);
+std::expected<Texture, std::string> LoadCubemap(const std::array<std::filesystem::path, 6>& faces);
 
 #endif

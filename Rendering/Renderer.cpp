@@ -252,7 +252,7 @@ void Renderer::DrawSkybox(const Skybox& skybox, const glm::mat4& view, const glm
     skybox.shader.SetUniform("projectionMatrix", projection);
     skybox.shader.SetUniform("skybox", 0);
 
-    device.BindCubemap(*skybox.cubemap, 0);  // Dereference the shared_ptr
+    device.BindCubemap(skybox.cubemap, 0);  // Dereference the shared_ptr
     device.BindVertexArray(*skybox.vao);
     device.DrawNonIndexed(36);
 
@@ -278,7 +278,7 @@ void Renderer::ApplyMaterial(const ShaderProgram& shader, const Material& materi
     int slot = 0;
     for (const auto& [name, texture] : material.GetAllTextures())
     {
-        device.BindTexture(*texture, slot);  // Dereference the shared_ptr
+        device.BindTexture(texture, slot);  // Dereference the shared_ptr
         shader.SetUniform(name, slot);
         slot++;
     }

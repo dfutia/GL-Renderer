@@ -12,10 +12,10 @@ struct Skybox
 	std::shared_ptr<VertexArray> vao;
 	std::shared_ptr<VertexBuffer> vbo;
 	ShaderProgram shader;
-	std::shared_ptr<Texture> cubemap;
+	Texture cubemap;
 };
 
-Skybox LoadSkybox(const std::array<std::string, 6>& faces);
+Skybox LoadSkybox(const std::array<std::filesystem::path, 6>& faces);
 Skybox LoadSkybox(const std::filesystem::path& folder);
 
 #endif

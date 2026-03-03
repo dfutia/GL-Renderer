@@ -9,9 +9,7 @@
 class SkinnedModelComponent : public ActorComponent
 {
 public:
-    SkinnedModelComponent() = default;
-    SkinnedModelComponent(const SkinnedMesh& mesh, const Material& material)
-        : mesh(mesh), material(material), animator(mesh.skeleton) {
+    SkinnedModelComponent(const Mesh& mesh, const Material& material) : mesh(mesh), material(material), animator(*mesh.skeleton) {
     }
 
     void OnUpdate(float deltaTime) override
@@ -24,7 +22,7 @@ public:
         return animator.GetFinalBoneMatrices();
     }
 
-    SkinnedMesh mesh;
+    Mesh mesh;
     Material material;
     Animator animator;
 };
