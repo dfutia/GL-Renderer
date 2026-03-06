@@ -9,22 +9,30 @@
 class SkinnedModelComponent : public ActorComponent
 {
 public:
-    SkinnedModelComponent(const Mesh& mesh, const Material& material) : mesh(mesh), material(material), animator(*mesh.skeleton) {
-    }
+    SkinnedModelComponent() = default;
 
     void OnUpdate(float deltaTime) override
     {
-        animator.Update(deltaTime);
+        if (animator)
+            animator->Update(deltaTime);
     }
 
     const std::vector<glm::mat4>& GetBoneMatrices() const
     {
-        return animator.GetFinalBoneMatrices();
+        return animator->GetFinalBoneMatrices();
     }
+
+    void SetModel(const Mesh& m)
+    {
+        mesh = m;
+        animator.emplace(*mesh.skeleton);
+    }
+
+    void SetMaterial(const Material& mat) { material = mat; }
 
     Mesh mesh;
     Material material;
-    Animator animator;
+    std::optional<Animator> animator;
 };
 
 #endif 

@@ -29,6 +29,7 @@
 #include "Rendering/Primitives.h"
 #include "Rendering/Renderer.h"
 #include "Rendering/Scene.h"
+#include "Rendering/TextureCache.h"
 
 #include "Graphics/GraphicsDevice.h"
 #include "Graphics/Texture.h"
@@ -113,87 +114,27 @@ int main(int argc, char* argv[])
 	scene.physics = &physics;
 	
 	// LOAD TEXTURES
-	std::vector<std::filesystem::path> texturesToLoad = {
-		GetMediaPath() / "Images/wood.png",
-		GetMediaPath() / "Images/container.jpg",
-	};
-	std::unordered_map<std::string, Texture> loadedTextures;
-	for (const auto& texPath : texturesToLoad)
-	{
-		// check if it's already loaded (e.g. from embedded texture)
-		if (loadedTextures.find(texPath.filename().string()) != loadedTextures.end())
-		{
-			std::println("Texture '{}' is already loaded, skipping.", texPath.string());
-			continue;
-		}
-
-		auto result = LoadTexture(texPath.string());
-		if (!result)
-		{
-			std::println("Could not load texture '{}': {}", texPath.string(), result.error());
-			continue;
-		}
-		else
-		{
-			//std::println("Loaded texture '{}' with name '{}'", texPath.string(), texPath.filename().string());
-			loadedTextures[texPath.filename().string()] = std::move(*result);
-		}
-	}
+	auto containerTexture = LoadTexture((GetMediaPath() / "Images/container.jpg"));
+	auto woodTexture = LoadTexture((GetMediaPath() / "Images/wood.png"));
+	auto skyboxTexture = LoadCubemap({
+		(GetMediaPath() / "Skybox/right.jpg").string(),
+		(GetMediaPath() / "Skybox/left.jpg").string(),
+		(GetMediaPath() / "Skybox/top.jpg").string(),
+		(GetMediaPath() / "Skybox/bottom.jpg").string(),
+		(GetMediaPath() / "Skybox/front.jpg").string(),
+		(GetMediaPath() / "Skybox/back.jpg").string()
+		});
 
 	// LOAD MODELS
-	std::vector<std::filesystem::path> modelsToLoad = {
-		GetMediaPath() / "Models/mannequin.fbx",
-		GetMediaPath() / "Models/Hip Hop Dancing.fbx",
-	};	
-	std::unordered_map<std::string, Model> loadedModels;
-	for (const auto& modelPath : modelsToLoad)
-	{
-		// check if it's already loaded (e.g. from embedded texture)
-		if (loadedModels.find(modelPath.filename().string()) != loadedModels.end())
-		{
-			std::println("Model '{}' is already loaded, skipping.", modelPath.string());
-			continue;
-		}
+	auto mannequinModel = LoadModel((GetMediaPath() / "Models/mannequin.fbx"));
+	auto michelleModel = LoadModel((GetMediaPath() / "Models/Hip Hop Dancing.fbx"));
 
-		auto result = LoadModel(modelPath.string());
-		if (!result)
-		{
-			std::println("Could not load model '{}': {}", modelPath.string(), result.error());
-			continue;
-		}
-		else
-		{
-			//std::println("Loaded model '{}' with name '{}'", modelPath.string(), modelPath.filename().string());
-			loadedModels[modelPath.filename().string()] = std::move(*result);
-		}
-	}
+	// LOAD MATERIALS
+	auto mannequinMat = LoadMaterial((GetMediaPath() / "Models/mannequin.fbx"));
+	auto michelleMat = LoadMaterial((GetMediaPath() / "Models/Hip Hop Dancing.fbx"));
 
 	// LOAD ANIMATIONS
-	std::vector<std::filesystem::path> animsToLoad = {
-	GetMediaPath() / "Models/Walking.fbx",
-	};
-	std::unordered_map<std::string, std::vector<Animation>> loadedAnims;
-	for (const auto& animPath : animsToLoad)
-	{
-		// check if it's already loaded (e.g. from embedded texture)
-		if (loadedAnims.find(animPath.filename().string()) != loadedAnims.end())
-		{
-			std::println("Animation '{}' is already loaded, skipping.", animPath.string());
-			continue;
-		}
-
-		auto result = LoadAnimations(animPath.string());
-		if (!result)
-		{
-			std::println("Could not load animaton '{}': {}", animPath.string(), result.error());
-			continue;
-		}
-		else
-		{
-			//std::println("Loaded animation '{}' with name '{}'", animPath.string(), animPath.filename().string());
-			loadedAnims[animPath.filename().string()] = std::move(*result);
-		}
-	}
+	auto walkingAnim = LoadAnimations((GetMediaPath() / "Models/Walking.fbx"));
 
 	// LOAD SHADERS
 	shaders.Load("unlit", GetMediaPath() / "Shaders/mesh.vert", GetMediaPath() / "Shaders/unlit.frag");
@@ -202,6 +143,7 @@ int main(int argc, char* argv[])
 	shaders.Load("depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag");
 	shaders.Load("skinned_depth", GetMediaPath() / "Shaders/depth.vert", GetMediaPath() / "Shaders/depth.frag", { "SKINNED" });
 	shaders.Load("blit", GetMediaPath() / "Shaders/blit.vert", GetMediaPath() / "Shaders/blit.frag");
+	shaders.Load("skybox", GetMediaPath() / "Shaders/skybox.vert", GetMediaPath() / "Shaders/skybox.frag");
 
 	// Camera
 	Camera camera;
@@ -216,23 +158,20 @@ int main(int argc, char* argv[])
 	light.intensity = 1.0f;
 	scene.mainLight = &light;
 
-	Skybox skybox = LoadSkybox({
-		(GetMediaPath() / "Skybox/right.jpg").string(),
-		(GetMediaPath() / "Skybox/left.jpg").string(),
-		(GetMediaPath() / "Skybox/top.jpg").string(),
-		(GetMediaPath() / "Skybox/bottom.jpg").string(),
-		(GetMediaPath() / "Skybox/front.jpg").string(),
-		(GetMediaPath() / "Skybox/back.jpg").string()
-	});
+	// Skybox
+	auto skyboxMesh = Primitives::CreateCube();
+	Skybox skybox(skyboxMesh, *shaders.Get("skybox"), *skyboxTexture);
 	scene.skybox = &skybox;
 
 	Mesh cubeMesh = Primitives::CreateCube();
 
 	Material cubeMaterial = Material::CreateDefault();
-	cubeMaterial.SetTexture(Material::DIFFUSE, loadedTextures.at("container.jpg"));
+	if (containerTexture)
+		cubeMaterial.SetTexture(Material::DIFFUSE, std::make_shared<Texture>(std::move(*containerTexture)));
 
 	Material floorMaterial = Material::CreateDefault();
-	floorMaterial.SetTexture(Material::DIFFUSE, loadedTextures.at("wood.png"));
+	if (woodTexture)
+		floorMaterial.SetTexture(Material::DIFFUSE, std::make_shared<Texture>(std::move(*woodTexture)));
 
 	for (int i = 0; i < 10; i++)
 	{
@@ -243,7 +182,9 @@ int main(int argc, char* argv[])
 		transform->rotation = glm::vec3(i * 15.0f, i * 25.0f, 0.0f);
 		transform->scale = glm::vec3(5.0f);
 
-		cube->AddComponent<ModelComponent>(cubeMesh, cubeMaterial);
+		auto* model = cube->AddComponent<ModelComponent>();
+		model->SetModel(cubeMesh);
+		model->SetMaterial(cubeMaterial);
 
 		auto* phys = cube->AddComponent<PhysicsComponent>(physics);
 		phys->SetMass(1.0f);
@@ -256,7 +197,9 @@ int main(int argc, char* argv[])
 	floorTransform->position = glm::vec3(0.0f, -50.0f, 0.0f);
 	floorTransform->scale = glm::vec3(500.0f, 1.0f, 500.0f);
 
-	floor->AddComponent<ModelComponent>(cubeMesh, floorMaterial);
+	auto* floorModel = floor->AddComponent<ModelComponent>();
+	floorModel->SetModel(cubeMesh);
+	floorModel->SetMaterial(floorMaterial);
 
 	auto* floorPhys = floor->AddComponent<PhysicsComponent>(physics);
 	floorPhys->SetMass(0.0f);
@@ -265,10 +208,18 @@ int main(int argc, char* argv[])
 	auto mannequinActor = scene.CreateActor();
 
 	mannequinActor->AddComponent<TransformComponent>();
-	auto* skinned = mannequinActor->AddComponent<SkinnedModelComponent>(loadedModels.at("Hip Hop Dancing.fbx").mesh, loadedModels.at("Hip Hop Dancing.fbx").material);
-	mannequinActor->AddComponent<RenderComponent>();
 
-	skinned->animator.Play(&loadedAnims.at("Walking.fbx")[0]); // Play first animation
+	auto* skinned = mannequinActor->AddComponent<SkinnedModelComponent>();
+	if (michelleModel)
+		skinned->SetModel(michelleModel->mesh);
+
+	if (michelleMat)
+		skinned->SetMaterial(*michelleMat);
+
+	if (walkingAnim)
+		skinned->animator->Play(&(*walkingAnim)[0]);
+
+	mannequinActor->AddComponent<RenderComponent>();
 
 	renderer.SetCamera(&camera);
 	renderer.SetLight(&light);

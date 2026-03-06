@@ -247,18 +247,19 @@ void Renderer::DrawSkybox(const Skybox& skybox, const glm::mat4& view, const glm
     device.SetDepthWrite(false);
     device.SetDepthFunc(DepthFunc::LessEqual);
 
-    device.BindShader(skybox.shader);
-    skybox.shader.SetUniform("viewMatrix", glm::mat4(glm::mat3(view)));
-    skybox.shader.SetUniform("projectionMatrix", projection);
-    skybox.shader.SetUniform("skybox", 0);
+    device.BindShader(skybox.shader.get());
+    skybox.shader.get().SetUniform("viewMatrix", glm::mat4(glm::mat3(view)));
+    skybox.shader.get().SetUniform("projectionMatrix", projection);
+    skybox.shader.get().SetUniform("skybox", 0);
 
-    device.BindCubemap(skybox.cubemap, 0);  // Dereference the shared_ptr
-    device.BindVertexArray(*skybox.vao);
+    device.BindCubemap(skybox.texture.get(), 0);
+    device.BindVertexArray(*skybox.mesh.get().vao);
     device.DrawNonIndexed(36);
 
     device.SetDepthWrite(true);
     device.SetDepthFunc(DepthFunc::Less);
 }
+
 void Renderer::DrawScreenQuad(const ScreenQuad& quad, const ShaderProgram& shader, const Texture& texture)
 {
     device.SetDepthTest(false);
@@ -278,7 +279,7 @@ void Renderer::ApplyMaterial(const ShaderProgram& shader, const Material& materi
     int slot = 0;
     for (const auto& [name, texture] : material.GetAllTextures())
     {
-        device.BindTexture(texture, slot);  // Dereference the shared_ptr
+        device.BindTexture(*texture, slot);  // Dereference the shared_ptr
         shader.SetUniform(name, slot);
         slot++;
     }

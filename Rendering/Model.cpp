@@ -9,6 +9,7 @@
 #include "Platform/File.h"
 #include "Mesh.h"
 #include "Graphics/Texture.h"
+#include "TextureCache.h"
 
 static glm::mat4 ToGlm(const aiMatrix4x4& m)
 {
@@ -24,13 +25,11 @@ static std::expected<Texture, std::string> LoadEmbeddedTexture(const aiTexture* 
 {
     if (aiTex->mHeight == 0)
     {
-        // Compressed (PNG/JPG) — mWidth is the byte count
         std::span<const std::uint8_t> data(reinterpret_cast<const std::uint8_t*>(aiTex->pcData), aiTex->mWidth);
         return LoadTexture(data);
     }
     else
     {
-        // Uncompressed ARGB8888 — raw pixel data
         Texture texture;
         texture.Image2D(aiTex->pcData, GL_UNSIGNED_BYTE, GL_RGBA, aiTex->mWidth, aiTex->mHeight, GL_RGBA);
         texture.SetWrapping(Texture::Repeat, Texture::Repeat);
@@ -40,18 +39,9 @@ static std::expected<Texture, std::string> LoadEmbeddedTexture(const aiTexture* 
     }
 }
 
-static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh* mesh, aiTextureType type)
+static std::shared_ptr<Texture> ResolveTexture(const aiScene* scene, const char* rawPath)
 {
-    if (mesh->mMaterialIndex >= scene->mNumMaterials)
-        return std::nullopt;
-
-    aiMaterial* aiMat = scene->mMaterials[mesh->mMaterialIndex];
-
-    aiString texPath;
-    if (aiMat->GetTexture(type, 0, &texPath) != AI_SUCCESS)
-        return std::nullopt;
-
-    std::string path(texPath.C_Str());
+    std::string path(rawPath);
 
     // Embedded texture referenced by index e.g. "*0"
     if (!path.empty() && path[0] == '*')
@@ -61,9 +51,9 @@ static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh*
         {
             auto result = LoadEmbeddedTexture(scene->mTextures[texIndex]);
             if (result)
-                return std::move(*result);
+                return std::make_shared<Texture>(std::move(*result));
         }
-        return std::nullopt;
+        return nullptr;
     }
 
     // Embedded texture referenced by filename
@@ -71,8 +61,8 @@ static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh*
     {
         auto result = LoadEmbeddedTexture(embedded);
         if (result)
-            return std::move(*result);
-        return std::nullopt;
+            return std::make_shared<Texture>(std::move(*result));
+        return nullptr;
     }
 
     // Match by filename only (strip path)
@@ -85,18 +75,30 @@ static std::optional<Texture> ExtractTexture(const aiScene* scene, const aiMesh*
         {
             auto result = LoadEmbeddedTexture(scene->mTextures[i]);
             if (result)
-                return std::move(*result);
-            return std::nullopt;
+                return std::make_shared<Texture>(std::move(*result));
+            return nullptr;
         }
     }
 
     // Fall back to disk
     auto result = LoadTexture(std::filesystem::path(path));
     if (result)
-        return std::move(*result);
+        return std::make_shared<Texture>(std::move(*result));
 
     std::println("Warning: could not load texture '{}'", path);
-    return std::nullopt;
+    return nullptr;
+}
+
+static std::shared_ptr<Texture> ExtractTexture(const aiScene* scene, const aiMesh* mesh, aiTextureType type)
+{
+    if (mesh->mMaterialIndex >= scene->mNumMaterials)
+        return nullptr;
+
+    aiString texPath;
+    if (scene->mMaterials[mesh->mMaterialIndex]->GetTexture(type, 0, &texPath) != AI_SUCCESS)
+        return nullptr;
+
+    return ResolveTexture(scene, texPath.C_Str());
 }
 
 static void BuildHierarchy(const aiNode* node, Skeleton& skeleton, int parentIndex)
@@ -119,122 +121,6 @@ static void BuildHierarchy(const aiNode* node, Skeleton& skeleton, int parentInd
         BuildHierarchy(node->mChildren[i], skeleton, nextParent);
     }
 }
-
-//std::vector<Animation> ExtractAnimations(const aiScene* scene)
-//{
-//    std::vector<Animation> animations;
-//
-//    for (unsigned int i = 0; i < scene->mNumAnimations; i++)
-//    {
-//        aiAnimation* aiAnim = scene->mAnimations[i];
-//
-//        Animation anim;
-//        anim.name = aiAnim->mName.C_Str();
-//        anim.duration = static_cast<float>(aiAnim->mDuration);
-//        anim.ticksPerSecond = aiAnim->mTicksPerSecond > 0
-//            ? static_cast<float>(aiAnim->mTicksPerSecond)
-//            : 24.0f;
-//
-//        for (unsigned int j = 0; j < aiAnim->mNumChannels; j++)
-//        {
-//            aiNodeAnim* aiChannel = aiAnim->mChannels[j];
-//            std::string rawName = aiChannel->mNodeName.C_Str();
-//            std::string boneName = rawName;
-//
-//            // Check if we already have a channel for this bone
-//            // (multiple AssimpFbx sub-nodes may map to the same bone)
-//            int existingIndex = -1;
-//            auto it = anim.boneNameToChannel.find(boneName);
-//            if (it != anim.boneNameToChannel.end())
-//                existingIndex = it->second;
-//
-//            if (existingIndex != -1)
-//            {
-//                // Merge into existing channel
-//                BoneAnimation& channel = anim.channels[existingIndex];
-//
-//                if (aiChannel->mNumPositionKeys > 1 ||
-//                    (aiChannel->mNumPositionKeys == 1 && channel.positionKeys.empty()))
-//                {
-//                    for (unsigned int k = 0; k < aiChannel->mNumPositionKeys; k++)
-//                    {
-//                        auto& key = aiChannel->mPositionKeys[k];
-//                        channel.positionKeys.push_back({
-//                            static_cast<float>(key.mTime),
-//                            glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-//                            });
-//                    }
-//                }
-//
-//                if (aiChannel->mNumRotationKeys > 1 ||
-//                    (aiChannel->mNumRotationKeys == 1 && channel.rotationKeys.empty()))
-//                {
-//                    for (unsigned int k = 0; k < aiChannel->mNumRotationKeys; k++)
-//                    {
-//                        auto& key = aiChannel->mRotationKeys[k];
-//                        channel.rotationKeys.push_back({
-//                            static_cast<float>(key.mTime),
-//                            glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)
-//                            });
-//                    }
-//                }
-//
-//                if (aiChannel->mNumScalingKeys > 1 ||
-//                    (aiChannel->mNumScalingKeys == 1 && channel.scaleKeys.empty()))
-//                {
-//                    for (unsigned int k = 0; k < aiChannel->mNumScalingKeys; k++)
-//                    {
-//                        auto& key = aiChannel->mScalingKeys[k];
-//                        channel.scaleKeys.push_back({
-//                            static_cast<float>(key.mTime),
-//                            glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-//                            });
-//                    }
-//                }
-//            }
-//            else
-//            {
-//                // New channel
-//                BoneAnimation channel;
-//                channel.boneName = boneName;
-//
-//                for (unsigned int k = 0; k < aiChannel->mNumPositionKeys; k++)
-//                {
-//                    auto& key = aiChannel->mPositionKeys[k];
-//                    channel.positionKeys.push_back({
-//                        static_cast<float>(key.mTime),
-//                        glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-//                        });
-//                }
-//
-//                for (unsigned int k = 0; k < aiChannel->mNumRotationKeys; k++)
-//                {
-//                    auto& key = aiChannel->mRotationKeys[k];
-//                    channel.rotationKeys.push_back({
-//                        static_cast<float>(key.mTime),
-//                        glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z)
-//                        });
-//                }
-//
-//                for (unsigned int k = 0; k < aiChannel->mNumScalingKeys; k++)
-//                {
-//                    auto& key = aiChannel->mScalingKeys[k];
-//                    channel.scaleKeys.push_back({
-//                        static_cast<float>(key.mTime),
-//                        glm::vec3(key.mValue.x, key.mValue.y, key.mValue.z)
-//                        });
-//                }
-//
-//                anim.boneNameToChannel[boneName] = static_cast<int>(anim.channels.size());
-//                anim.channels.push_back(std::move(channel));
-//            }
-//        }
-//
-//        animations.push_back(std::move(anim));
-//    }
-//
-//    return animations;
-//}
 
 std::expected<Model, std::string> LoadModel(const std::filesystem::path& filepath)
 {
@@ -355,14 +241,44 @@ std::expected<Model, std::string> LoadModel(const std::filesystem::path& filepat
     mesh.ebo->Data(indices.data(), indices.size() * sizeof(unsigned int), VertexBuffer::StaticDraw);
     mesh.vao->BindElemenets(*mesh.ebo);
 
-    // Build material
+    Model result;
+    result.mesh = std::move(mesh);
+
+    return result;
+}
+
+std::expected<Material, std::string> LoadMaterial(const std::filesystem::path& filepath)
+{
+    std::vector<std::uint8_t> fileData = ReadBinaryFile(filepath.string());
+
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFileFromMemory(
+        fileData.data(), fileData.size(),
+        aiProcess_Triangulate,
+        filepath.extension().string().c_str() + 1);
+
+    if (!scene || !scene->mNumMeshes)
+        return std::unexpected("Failed to load material: " + filepath.string());
+
+    aiMesh* aiM = scene->mMeshes[0];
+
+    if (aiM->mMaterialIndex >= scene->mNumMaterials)
+        return std::unexpected("No material found in: " + filepath.string());
+
     aiMaterial* aiMat = scene->mMaterials[aiM->mMaterialIndex];
 
-    Material material = Material::CreateDefault();
+    Material material = Material::CreatePBRDefault();
 
-    aiColor3D color;
+    // PBR properties
     float value;
+    if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
+        material.properties.metallic = value;
 
+    if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
+        material.properties.roughness = value;
+
+    // Phong/legacy properties
+    aiColor3D color;
     if (aiMat->Get(AI_MATKEY_COLOR_AMBIENT, color) == AI_SUCCESS)
         material.properties.ambient = glm::vec3(color.r, color.g, color.b);
 
@@ -375,38 +291,23 @@ std::expected<Model, std::string> LoadModel(const std::filesystem::path& filepat
     if (aiMat->Get(AI_MATKEY_SHININESS, value) == AI_SUCCESS)
         material.properties.shininess = value;
 
-    if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, value) == AI_SUCCESS)
-        material.properties.metallic = value;
+    struct TexSlot { aiTextureType aiType; const char* name; };
+    TexSlot slots[] = {
+        { aiTextureType_DIFFUSE,            Material::DIFFUSE },
+        { aiTextureType_SPECULAR,           Material::SPECULAR },
+        { aiTextureType_NORMALS,            Material::NORMAL },
+        { aiTextureType_METALNESS,          Material::METALLIC },
+        { aiTextureType_DIFFUSE_ROUGHNESS,  Material::ROUGHNESS },
+        { aiTextureType_AMBIENT_OCCLUSION,  Material::AO },
+    };
 
-    if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, value) == AI_SUCCESS)
-        material.properties.roughness = value;
+    for (auto& [aiType, name] : slots)
+    {
+        if (auto tex = ExtractTexture(scene, aiM, aiType))
+            material.SetTexture(name, std::move(tex));
+    }
 
-    Model result;
-    result.mesh = std::move(mesh);
-    result.material = std::move(material);
-
-    // Extract and store textures in the model
-    if (auto tex = ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
-        result.textures.push_back(std::move(*tex));
-
-    if (auto tex = ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
-        result.textures.push_back(std::move(*tex));
-
-    if (auto tex = ExtractTexture(scene, aiM, aiTextureType_NORMALS))
-        result.textures.push_back(std::move(*tex));
-
-    // Now set up material references (textures are stable in the vector)
-    size_t texIndex = 0;
-    if (ExtractTexture(scene, aiM, aiTextureType_DIFFUSE))
-        result.material.SetTexture(Material::DIFFUSE, result.textures[texIndex++]);
-
-    if (ExtractTexture(scene, aiM, aiTextureType_SPECULAR))
-        result.material.SetTexture(Material::SPECULAR, result.textures[texIndex++]);
-
-    if (ExtractTexture(scene, aiM, aiTextureType_NORMALS))
-        result.material.SetTexture(Material::NORMAL, result.textures[texIndex++]);
-
-    return result;
+    return material;
 }
 
 std::expected<std::vector<Animation>, std::string> LoadAnimations(const std::filesystem::path& filepath)

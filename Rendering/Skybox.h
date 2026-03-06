@@ -6,16 +6,15 @@
 #include "Graphics/VertexBuffer.h"
 #include "Graphics/ShaderProgram.h"
 #include "Graphics/Texture.h"
+#include "Mesh.h"
 
 struct Skybox
 {
-	std::shared_ptr<VertexArray> vao;
-	std::shared_ptr<VertexBuffer> vbo;
-	ShaderProgram shader;
-	Texture cubemap;
-};
+    std::reference_wrapper<Mesh> mesh;
+    std::reference_wrapper<ShaderProgram> shader;
+    std::reference_wrapper<Texture> texture;
 
-Skybox LoadSkybox(const std::array<std::filesystem::path, 6>& faces);
-Skybox LoadSkybox(const std::filesystem::path& folder);
+    Skybox(Mesh& m, ShaderProgram& s, Texture& t) : mesh(m), shader(s), texture(t) {}
+};
 
 #endif
